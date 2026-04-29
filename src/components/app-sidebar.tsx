@@ -192,9 +192,7 @@ export function AppSidebar({ profile, memberCount }: Props) {
   })
   const [hoverExpanded, setHoverExpanded] = useState(false)
 
-  // When collapsed but hovered, show expanded content over main area (fixed)
   const isExpanded = !collapsed || hoverExpanded
-  const isFloating = collapsed && hoverExpanded
 
   function toggleCollapsed() {
     setCollapsed(prev => {
@@ -211,15 +209,17 @@ export function AppSidebar({ profile, memberCount }: Props) {
 
   return (
     <>
-      {/* Spacer keeps layout stable when sidebar is floating */}
-      {isFloating && <div className="w-14 shrink-0" />}
+      {/* Spacer always in flex flow — drives layout, never causes reflow on hover */}
+      <div className={cn(
+        'shrink-0 transition-[width] duration-200 ease-in-out',
+        collapsed ? 'w-14' : 'w-64'
+      )} />
 
       <aside
         className={cn(
-          'flex h-screen flex-col border-r border-border bg-sidebar backdrop-blur-xl shrink-0 transition-[width] duration-200 ease-in-out overflow-hidden',
-          isFloating
-            ? 'fixed left-0 top-0 z-50 w-64 shadow-2xl'
-            : collapsed ? 'w-14' : 'w-64'
+          'fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border bg-sidebar backdrop-blur-xl transition-[width] duration-200 ease-in-out overflow-hidden',
+          collapsed && !hoverExpanded ? 'w-14' : 'w-64',
+          hoverExpanded && 'shadow-2xl z-50'
         )}
         onMouseEnter={() => { if (collapsed) setHoverExpanded(true) }}
         onMouseLeave={() => setHoverExpanded(false)}
