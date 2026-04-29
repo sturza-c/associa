@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register')
@@ -8,7 +8,7 @@ export function proxy(request: NextRequest) {
   // Detect Supabase session cookie (any cookie starting with sb-)
   const hasSession = request.cookies.getAll().some(c => c.name.startsWith('sb-'))
 
-  // Never redirect away from auth routes in the proxy — avoids redirect loops
+  // Never redirect away from auth routes in the middleware — avoids redirect loops
   // when Supabase rate-limits or the session is stale. The login page handles
   // post-login navigation itself.
   if (isAuthRoute) {
