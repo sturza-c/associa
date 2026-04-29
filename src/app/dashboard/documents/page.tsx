@@ -7,10 +7,11 @@ import { DocumentsClient } from '@/features/documents/documents-client'
 
 export default async function DocumentsPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [{ data: { user } }, activeMembership] = await Promise.all([
+    supabase.auth.getUser(),
+    getActiveMembership(),
+  ])
   if (!user) redirect('/login')
-
-  const activeMembership = await getActiveMembership()
   if (!activeMembership) redirect('/onboarding')
 
   const [documents, folders] = await Promise.all([

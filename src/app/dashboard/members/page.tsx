@@ -8,10 +8,11 @@ import type { AssociationTitle } from '@/types/database'
 
 export default async function MembersPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [{ data: { user } }, activeMembership] = await Promise.all([
+    supabase.auth.getUser(),
+    getActiveMembership(),
+  ])
   if (!user) redirect('/login')
-
-  const activeMembership = await getActiveMembership()
   if (!activeMembership) redirect('/onboarding')
 
   const associationId = activeMembership.association_id

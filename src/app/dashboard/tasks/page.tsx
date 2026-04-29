@@ -7,10 +7,11 @@ import { TasksClient } from '@/features/tasks/tasks-client'
 
 export default async function TasksPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [{ data: { user } }, activeMembership] = await Promise.all([
+    supabase.auth.getUser(),
+    getActiveMembership(),
+  ])
   if (!user) redirect('/login')
-
-  const activeMembership = await getActiveMembership()
   if (!activeMembership) redirect('/onboarding')
 
   const [tasks, members] = await Promise.all([

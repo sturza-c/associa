@@ -7,10 +7,11 @@ import { MessagesClient } from '@/features/messages/messages-client'
 
 export default async function MessagesPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [{ data: { user } }, activeMembership] = await Promise.all([
+    supabase.auth.getUser(),
+    getActiveMembership(),
+  ])
   if (!user) redirect('/login')
-
-  const activeMembership = await getActiveMembership()
   if (!activeMembership) redirect('/onboarding')
 
   const [conversations, members] = await Promise.all([

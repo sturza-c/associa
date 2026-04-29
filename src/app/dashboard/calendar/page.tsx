@@ -10,10 +10,11 @@ interface PageProps {
 
 export default async function CalendarPage({ searchParams }: PageProps) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [{ data: { user } }, activeMembership] = await Promise.all([
+    supabase.auth.getUser(),
+    getActiveMembership(),
+  ])
   if (!user) redirect('/login')
-
-  const activeMembership = await getActiveMembership()
   if (!activeMembership) redirect('/onboarding')
 
   const params = await searchParams

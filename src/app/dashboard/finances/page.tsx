@@ -8,10 +8,11 @@ import { FinancesShell } from '@/features/finances/finances-shell'
 
 export default async function FinancesPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [{ data: { user } }, activeMembership] = await Promise.all([
+    supabase.auth.getUser(),
+    getActiveMembership(),
+  ])
   if (!user) redirect('/login')
-
-  const activeMembership = await getActiveMembership()
   if (!activeMembership) redirect('/onboarding')
 
   const [finances, budgets, categories] = await Promise.all([
