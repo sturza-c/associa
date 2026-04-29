@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
@@ -21,7 +21,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const next = searchParams.get('next') || '/dashboard'
@@ -112,12 +112,23 @@ export default function RegisterPage() {
           </Button>
           <p className="text-sm text-muted-foreground text-center">
             Déjà un compte ?{' '}
-            <Link href={`/login${next !== '/dashboard' ? `?next=${encodeURIComponent(next)}${prefillEmail ? `&email=${encodeURIComponent(prefillEmail)}` : ''}` : ''}`} className="text-foreground hover:underline font-medium">
+            <Link
+              href={`/login${next !== '/dashboard' ? `?next=${encodeURIComponent(next)}${prefillEmail ? `&email=${encodeURIComponent(prefillEmail)}` : ''}` : ''}`}
+              className="text-foreground hover:underline font-medium"
+            >
               Se connecter
             </Link>
           </p>
         </CardFooter>
       </form>
     </Card>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
   )
 }
