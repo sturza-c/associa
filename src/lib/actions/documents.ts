@@ -86,6 +86,58 @@ export async function getSignedViewUrl(filePath: string): Promise<string | null>
   return data.signedUrl
 }
 
+export async function renameDocument(documentId: string, name: string, associationId: string) {
+  const trimmed = name.trim()
+  if (!trimmed) return { error: 'Le nom ne peut pas être vide' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Non authentifié' }
+
+  const { data: doc } = await supabase
+    .from('documents')
+    .select('uploaded_by')
+    .eq('id', documentId)
+    .single()
+
+  const { data: membership } = await supabase
+    .from('association_memberships')
+    .select('role')
+    .eq('association_id', associationId)
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .single()
+
+  const callerRole = membership?.role as Role | undefined
+  const canEdit = ['president', 'secretary'].includes(callerRole ?? '') || doc?.uploaded_by === user.id
+  if (!canEdit) return { error: 'Vous ne pouvez pas renommer ce document' }
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('documents').update({ name: trimmed }).eq('id', documentId)
+  if (error) return { error: 'Erreur lors du renommage' }
+
+  revalidatePath('/dashboard/documents')
+  return { success: true }
+}
+
+export async function moveDocument(documentId: string, folderId: string | null, associationId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Non authentifié' }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('documents')
+    .update({ folder_id: folderId })
+    .eq('id', documentId)
+    .eq('association_id', associationId)
+
+  if (error) return { error: 'Erreur lors du déplacement' }
+
+  revalidatePath('/dashboard/documents')
+  return { success: true }
+}
+
 export async function deleteDocument(documentId: string, filePath: string, associationId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
