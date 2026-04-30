@@ -31,8 +31,7 @@ export function GrainOverlay() {
     }
     ctx.putImageData(img, 0, 0)
 
-    // Convert to data URL and use as CSS background tile (tiled at 2× for
-    // soft grain; each noise pixel becomes a 2×2 CSS-pixel cell)
+    // 1:1 mapping → each canvas pixel = 1 CSS pixel = finest possible grain
     const url = canvas.toDataURL('image/png')
     el.style.backgroundImage = `url(${url})`
   }, [])
@@ -43,9 +42,9 @@ export function GrainOverlay() {
       aria-hidden
       className="pointer-events-none fixed inset-0 z-20"
       style={{
-        opacity: 0.16,
+        opacity: 0.11,
         backgroundRepeat: 'repeat',
-        backgroundSize: '384px 384px', // 2× the 192px canvas → soft grain
+        backgroundSize: '192px 192px', // 1:1 — each noise pixel = 1 CSS pixel
       }}
     />
   )

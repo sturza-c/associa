@@ -2,7 +2,7 @@ import { GrainOverlay } from './grain-overlay'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden bg-[#030408]">
+    <div className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden bg-[#01020a]">
 
       {/* ── Ambient glows ── */}
       {/* All have will-change: transform → pre-promoted to GPU, no tile flash on load */}
@@ -16,7 +16,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           left: '-15%',
           width: '70vw',
           height: '70vw',
-          background: 'radial-gradient(circle, oklch(0.45 0.22 285 / 38%) 0%, transparent 60%)',
+          background: 'radial-gradient(circle, oklch(0.48 0.24 285 / 52%) 0%, transparent 60%)',
           filter: 'blur(40px)',
           willChange: 'transform',
           animation: 'drift-a 18s ease-in-out infinite',
@@ -31,7 +31,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           right: '-15%',
           width: '60vw',
           height: '60vw',
-          background: 'radial-gradient(circle, oklch(0.38 0.18 240 / 35%) 0%, transparent 60%)',
+          background: 'radial-gradient(circle, oklch(0.40 0.20 240 / 46%) 0%, transparent 60%)',
           filter: 'blur(50px)',
           willChange: 'transform',
           animation: 'drift-b 22s ease-in-out infinite',
@@ -46,7 +46,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           left: '20%',
           width: '45vw',
           height: '45vw',
-          background: 'radial-gradient(circle, oklch(0.35 0.14 200 / 20%) 0%, transparent 65%)',
+          background: 'radial-gradient(circle, oklch(0.38 0.16 200 / 28%) 0%, transparent 65%)',
           filter: 'blur(70px)',
           willChange: 'transform',
           animation: 'drift-c 28s ease-in-out infinite',
@@ -61,7 +61,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           right: '2%',
           width: '35vw',
           height: '35vw',
-          background: 'radial-gradient(circle, oklch(0.40 0.16 340 / 14%) 0%, transparent 65%)',
+          background: 'radial-gradient(circle, oklch(0.42 0.18 340 / 20%) 0%, transparent 65%)',
           filter: 'blur(60px)',
           willChange: 'transform',
           animation: 'drift-d 32s ease-in-out infinite',
@@ -104,7 +104,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         aria-hidden
         className="pointer-events-none fixed inset-0"
         style={{
-          background: 'radial-gradient(ellipse 70% 70% at 50% 45%, transparent 30%, #030408 100%)',
+          background: 'radial-gradient(ellipse 70% 70% at 50% 45%, transparent 30%, #01020a 100%)',
         }}
       />
       <div
@@ -150,7 +150,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                 fontStyle: 'italic',
                 fontWeight: 700,
                 letterSpacing: '-0.03em',
-                textShadow: '0 0 60px oklch(0.55 0.22 285 / 45%), 0 2px 40px rgba(0,0,0,0.7)',
+                textShadow: '0 0 80px oklch(0.58 0.24 285 / 60%), 0 0 160px oklch(0.45 0.20 285 / 30%), 0 2px 40px rgba(0,0,0,0.8)',
               }}
             >
               Associa
