@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
@@ -22,7 +22,16 @@ export function LoginForm() {
   const searchParams = useSearchParams()
   const next = searchParams.get('next') || '/dashboard'
   const prefillEmail = searchParams.get('email') ?? ''
+  const errorParam = searchParams.get('error')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (errorParam === 'session_expired') {
+      toast.error('Le lien de réinitialisation a expiré. Veuillez en demander un nouveau.')
+    } else if (errorParam === 'auth_callback_failed') {
+      toast.error('Le lien est invalide ou a déjà été utilisé.')
+    }
+  }, [errorParam])
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -79,9 +88,17 @@ export function LoginForm() {
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="password" className="text-xs font-medium text-white/50 uppercase tracking-wider">
-              Mot de passe
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="password" className="text-xs font-medium text-white/50 uppercase tracking-wider">
+                Mot de passe
+              </label>
+              <Link
+                href="/forgot-password"
+                className="text-xs text-white/30 hover:text-white/60 transition-colors"
+              >
+                Mot de passe oublié ?
+              </Link>
+            </div>
             <input
               id="password"
               type="password"
