@@ -12,6 +12,8 @@ export interface Association {
   logo_url: string | null
   accent_color: string
   role_labels: RoleLabels | null
+  slug: string | null
+  is_public: boolean
   created_at: string
   updated_at: string
 }
@@ -162,6 +164,70 @@ export interface EventBudgetLine {
 export interface EventBudgetWithLines extends EventBudget {
   lines: EventBudgetLine[]
 }
+
+// ── Events ────────────────────────────────────────────────────────────────────
+
+export type EventStatus = 'planned' | 'active' | 'done' | 'cancelled'
+export type EventRsvp   = 'going' | 'maybe' | 'declined'
+
+export interface AssocEvent {
+  id: string
+  association_id: string
+  name: string
+  description: string | null
+  event_date: string | null
+  start_time: string | null
+  end_time: string | null
+  location: string | null
+  status: EventStatus
+  max_participants: number | null
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface EventParticipant {
+  id: string
+  event_id: string
+  user_id: string
+  response: EventRsvp
+  note: string | null
+  created_at: string
+}
+
+export interface EventBudgetItem {
+  id: string
+  event_id: string
+  type: FinanceType
+  label: string
+  planned_amount: number
+  actual_amount: number
+  notes: string | null
+  created_at: string
+}
+
+export interface EventTask {
+  id: string
+  event_id: string
+  title: string
+  assigned_to: string | null
+  due_date: string | null
+  done: boolean
+  position: number
+  created_at: string
+}
+
+export interface EventParticipantWithProfile extends EventParticipant {
+  user_profiles: UserProfile
+}
+
+export interface AssocEventWithDetails extends AssocEvent {
+  participants: EventParticipantWithProfile[]
+  budget_items: EventBudgetItem[]
+  tasks: EventTask[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface MembershipWithProfile extends AssociationMembership {
   user_profiles: UserProfile

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useState, useMemo, useTransition, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { updateMemberRole, deactivateMember } from '@/lib/actions/members'
@@ -15,8 +15,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, UserMinus, ShieldCheck, Search, Users, Mail, X, Send, Copy, Check } from 'lucide-react'
+import { MoreHorizontal, UserMinus, ShieldCheck, Search, Users, Mail, X, Send, Copy, Check, Download, FileText, FileSpreadsheet } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { exportMembersCSV, exportMembersPDF } from '@/lib/export'
 
 const ROLE_LABELS: Record<Role, string> = {
   president: 'Président·e',
@@ -59,6 +60,7 @@ interface Props {
   members: MembershipWithProfile[]
   invitations: PendingInvitation[]
   associationId: string
+  associationName: string
   callerRole: Role
   currentUserId: string
   titles: AssociationTitle[]
@@ -69,6 +71,7 @@ export function MembersClient({
   members,
   invitations,
   associationId,
+  associationName,
   callerRole,
   currentUserId,
   titles,
@@ -79,8 +82,18 @@ export function MembersClient({
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [exportOpen, setExportOpen] = useState(false)
+  const exportRef = useRef<HTMLDivElement>(null)
   const isPresident = callerRole === 'president'
   const canInvite = callerRole === 'president' || callerRole === 'secretary'
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [])
 
   const filteredMembers = useMemo(() => {
     if (!query) return members
@@ -251,6 +264,36 @@ export function MembersClient({
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          {/* Export dropdown */}
+          {members.length > 0 && (
+            <div ref={exportRef} className="relative">
+              <button
+                onClick={() => setExportOpen(v => !v)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background/60 px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                Exporter
+              </button>
+              {exportOpen && (
+                <div className="absolute right-0 top-full mt-1 w-44 rounded-xl border border-border bg-popover shadow-2xl p-1 z-50">
+                  <button
+                    onClick={() => { exportMembersCSV(members); setExportOpen(false) }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-foreground/5 transition-colors"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 text-emerald-500" />
+                    CSV
+                  </button>
+                  <button
+                    onClick={() => { exportMembersPDF(members, associationName); setExportOpen(false) }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-foreground/5 transition-colors"
+                  >
+                    <FileText className="h-4 w-4 text-red-400" />
+                    PDF
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           {isPresident && (
             <ManagePostesDialog
               associationId={associationId}

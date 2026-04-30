@@ -14,8 +14,14 @@ import {
   Check,
   LogOut,
   Palette,
+  Globe,
+  Copy,
+  ExternalLink,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react'
 import { LogoUpload } from '@/features/dashboard/logo-upload'
+import { AvatarUpload } from '@/features/settings/avatar-upload'
 import {
   updateAssociationIdentity,
   updateRoleLabels,
@@ -25,7 +31,9 @@ import {
   assignTitle,
   unassignTitle,
   leaveAssociation,
+  updatePublicPage,
 } from '@/lib/actions/association-settings'
+import { updateProfileName } from '@/lib/actions/profile'
 import { roleLabel, ROLE_ORDER, DEFAULT_ROLE_LABELS } from '@/lib/roles'
 import type {
   Association,
@@ -41,6 +49,7 @@ interface MemberWithTitles {
   role: Role
   full_name: string | null
   email: string
+  avatar_url: string | null
   title_ids: string[]
 }
 
@@ -65,10 +74,11 @@ interface Props {
   titles: AssociationTitle[]
   members: MemberWithTitles[]
   currentUserId: string
+  currentUserProfile: { full_name: string | null; avatar_url: string | null; email: string }
   callerRole: Role
 }
 
-export function SettingsClient({ association, titles, members, currentUserId, callerRole }: Props) {
+export function SettingsClient({ association, titles, members, currentUserId, currentUserProfile, callerRole }: Props) {
   const isPresident = callerRole === 'president'
 
   return (
@@ -93,6 +103,11 @@ export function SettingsClient({ association, titles, members, currentUserId, ca
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-8 py-10 space-y-14">
 
+          <MyProfileSection
+            userId={currentUserId}
+            profile={currentUserProfile}
+          />
+
           <IdentitySection association={association} canEdit={isPresident} />
 
           <RoleLabelsSection
@@ -112,6 +127,14 @@ export function SettingsClient({ association, titles, members, currentUserId, ca
             titles={titles}
             members={members}
             customRoleLabels={association.role_labels ?? null}
+            canEdit={isPresident}
+          />
+
+          <PublicPageSection
+            associationId={association.id}
+            currentSlug={association.slug ?? null}
+            isPublic={association.is_public ?? false}
+            associationName={association.name}
             canEdit={isPresident}
           />
 
@@ -611,9 +634,15 @@ function MembersSection({
             return (
               <div key={m.membership_id} className="py-3">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-white/15 to-white/5 text-[11px] font-semibold ring-1 ring-white/10">
-                    {getInitials(m.full_name, m.email)}
-                  </span>
+                  {m.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={m.avatar_url} alt={m.full_name ?? m.email}
+                      className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-white/10" />
+                  ) : (
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-white/15 to-white/5 text-[11px] font-semibold ring-1 ring-white/10">
+                      {getInitials(m.full_name, m.email)}
+                    </span>
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
                       {m.full_name || m.email.split('@')[0]}
@@ -780,6 +809,257 @@ function DangerSection({
               <LogOut className="h-3.5 w-3.5" />
               Quitter l&apos;association
             </button>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── My Profile section ───────────────────────────────────────────────────────
+
+function MyProfileSection({
+  userId,
+  profile,
+}: {
+  userId: string
+  profile: { full_name: string | null; avatar_url: string | null; email: string }
+}) {
+  const [, start] = useTransition()
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(profile.full_name ?? '')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url)
+
+  function commitName() {
+    const n = name.trim()
+    setEditing(false)
+    if (!n || n === profile.full_name) { setName(profile.full_name ?? ''); return }
+    start(async () => {
+      const r = await updateProfileName(n)
+      if (r.error) { toast.error(r.error); setName(profile.full_name ?? '') }
+      else toast.success('Nom mis à jour')
+    })
+  }
+
+  return (
+    <section className="space-y-6">
+      <SectionHeader icon={UsersIcon} eyebrow="Compte" title="Mon profil" />
+      <p className="text-sm text-muted-foreground -mt-4">
+        Visible par tous les membres de votre association.
+      </p>
+
+      <div className="flex items-center gap-5 p-5 rounded-2xl border border-white/8 bg-white/[0.03]">
+        <AvatarUpload
+          userId={userId}
+          avatarUrl={avatarUrl}
+          fullName={name || null}
+          email={profile.email}
+          size="lg"
+          onUploaded={(url) => setAvatarUrl(url)}
+        />
+
+        <div className="flex-1 min-w-0 space-y-3">
+          {/* Name */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Nom complet</p>
+            {editing ? (
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  onBlur={commitName}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { e.preventDefault(); commitName() }
+                    if (e.key === 'Escape') { setName(profile.full_name ?? ''); setEditing(false) }
+                  }}
+                  className="flex-1 bg-white/5 border border-white/15 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-white/15"
+                  maxLength={80}
+                />
+                <button onClick={commitName} className="h-8 w-8 flex items-center justify-center rounded-lg bg-white/8 hover:bg-white/15 transition-colors">
+                  <Check className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => { setName(profile.full_name ?? ''); setEditing(false) }}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/8 text-muted-foreground transition-colors">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium">{name || <span className="text-muted-foreground/60 italic font-heading">Non renseigné</span>}</p>
+                <button onClick={() => setEditing(true)}
+                  className="opacity-50 hover:opacity-100 transition-opacity text-muted-foreground">
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Email (read-only) */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Adresse e-mail</p>
+            <p className="text-sm text-muted-foreground">{profile.email}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── Public page section ──────────────────────────────────────────────────────
+
+function PublicPageSection({
+  associationId,
+  currentSlug,
+  isPublic,
+  associationName,
+  canEdit,
+}: {
+  associationId: string
+  currentSlug: string | null
+  isPublic: boolean
+  associationName: string
+  canEdit: boolean
+}) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://getassocia.me'
+  const [slug, setSlug] = useState(currentSlug ?? '')
+  const [pub, setPub] = useState(isPublic)
+  const [editingSlug, setEditingSlug] = useState(false)
+  const [slugInput, setSlugInput] = useState(currentSlug ?? '')
+  const [copied, setCopied] = useState(false)
+  const [, start] = useTransition()
+
+  const publicUrl = slug ? `${appUrl}/a/${slug}` : null
+
+  function handleTogglePublic() {
+    if (!canEdit) return
+    const next = !pub
+    setPub(next)
+    start(async () => {
+      const r = await updatePublicPage(associationId, { is_public: next })
+      if (r.error) { toast.error(r.error); setPub(!next) }
+      else toast.success(next ? 'Page publique activée' : 'Page publique désactivée')
+    })
+  }
+
+  function saveSlug() {
+    if (!slugInput.trim()) { toast.error('Le slug ne peut pas être vide'); return }
+    start(async () => {
+      const r = await updatePublicPage(associationId, { slug: slugInput })
+      if (r.error) toast.error(r.error)
+      else {
+        setSlug(r.slug ?? slugInput)
+        setEditingSlug(false)
+        toast.success('URL mise à jour')
+      }
+    })
+  }
+
+  function handleGenerateSlug() {
+    const generated = associationName
+      .toLowerCase()
+      .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60)
+    setSlugInput(generated)
+  }
+
+  function copyUrl() {
+    if (!publicUrl) return
+    navigator.clipboard.writeText(publicUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1800)
+  }
+
+  return (
+    <section>
+      <SectionHeader icon={Globe} eyebrow="Visibilité" title="Page publique" />
+      <div className="space-y-5">
+        <p className="text-sm text-muted-foreground">
+          Partagez une page publique pour présenter votre association et ses événements à venir — sans connexion requise.
+        </p>
+
+        {/* Toggle */}
+        <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-5 py-4">
+          <div>
+            <p className="text-sm font-medium">{pub ? 'Page publique activée' : 'Page publique désactivée'}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {pub ? 'Votre page est visible par tout le monde.' : 'Votre page est masquée.'}
+            </p>
+          </div>
+          <button
+            onClick={handleTogglePublic}
+            disabled={!canEdit}
+            className="text-foreground/70 hover:text-foreground transition-colors disabled:opacity-40"
+          >
+            {pub
+              ? <ToggleRight className="h-8 w-8 text-primary" />
+              : <ToggleLeft className="h-8 w-8" />
+            }
+          </button>
+        </div>
+
+        {/* Slug editor */}
+        <div className="rounded-2xl border border-border bg-card px-5 py-4 space-y-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">URL de la page</p>
+          {editingSlug ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground shrink-0">{appUrl}/a/</span>
+                <input
+                  value={slugInput}
+                  onChange={e => setSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  placeholder="mon-association"
+                  className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring/30"
+                  autoFocus
+                  onKeyDown={e => { if (e.key === 'Enter') saveSlug(); if (e.key === 'Escape') setEditingSlug(false) }}
+                />
+              </div>
+              {!slugInput && (
+                <button onClick={handleGenerateSlug} className="text-xs text-primary hover:underline">
+                  Générer depuis le nom
+                </button>
+              )}
+              <div className="flex gap-2">
+                <button onClick={() => setEditingSlug(false)} className="px-3 py-1.5 rounded-lg border border-border text-xs hover:bg-foreground/5 transition-colors">
+                  Annuler
+                </button>
+                <button onClick={saveSlug} className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors">
+                  Enregistrer
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              {publicUrl ? (
+                <>
+                  <code className="flex-1 text-sm font-mono text-muted-foreground truncate">{publicUrl}</code>
+                  <button onClick={copyUrl} title="Copier le lien" className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-foreground/8 text-muted-foreground hover:text-foreground transition-colors">
+                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                  <a href={publicUrl} target="_blank" rel="noopener noreferrer" title="Ouvrir" className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-foreground/8 text-muted-foreground hover:text-foreground transition-colors">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                  {canEdit && (
+                    <button onClick={() => { setEditingSlug(true); setSlugInput(slug) }} title="Modifier" className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-foreground/8 text-muted-foreground hover:text-foreground transition-colors">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </>
+              ) : (
+                canEdit ? (
+                  <button
+                    onClick={() => { setEditingSlug(true); handleGenerateSlug() }}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Définir une URL →
+                  </button>
+                ) : (
+                  <span className="text-sm text-muted-foreground italic">Aucune URL définie</span>
+                )
+              )}
+            </div>
           )}
         </div>
       </div>

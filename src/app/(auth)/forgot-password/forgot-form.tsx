@@ -23,7 +23,9 @@ export function ForgotForm() {
     setError(null)
 
     const supabase = createClient()
-    const redirectTo = `${window.location.origin}/auth/callback?next=/reset-password`
+    // No query params — Supabase requires exact URL match in the allowlist.
+    // Password recovery routing is handled by the PASSWORD_RECOVERY event in the callback.
+    const redirectTo = `${window.location.origin}/auth/callback`
 
     const { error: sbError } = await supabase.auth.resetPasswordForEmail(clean, {
       redirectTo,

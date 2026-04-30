@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useTransition, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
 import { deleteFinanceEntry } from '@/lib/actions/finances'
 import {
   createFinanceCategory,
@@ -12,114 +11,99 @@ import {
 import { AddFinanceDialog } from './add-finance-dialog'
 import { CreateBudgetDialog } from './create-budget-dialog'
 import { BudgetDetail } from './budgets-client'
-import type {
-  Finance,
-  FinanceCategory,
-  Role,
-  EventBudgetWithLines,
-  EventBudgetStatus,
-} from '@/types/database'
+import type { Finance, FinanceCategory, Role, EventBudgetWithLines, EventBudgetStatus } from '@/types/database'
 import {
-  Trash2,
-  Search,
-  Wallet,
-  TrendingUp,
-  TrendingDown,
-  Inbox,
-  CalendarDays,
-  Plus,
-  Pencil,
-  Check,
-  X,
+  Trash2, Wallet, TrendingUp, TrendingDown, Inbox,
+  Plus, Pencil, Check, X, ChevronLeft, FolderOpen,
+  Download, FileText, FileSpreadsheet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CollapsibleRail } from '@/components/collapsible-rail'
+import { exportFinancesCSV, exportFinancesPDF } from '@/lib/export'
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const COLOR_PRESETS = [
   '#60a5fa', '#34d399', '#a78bfa', '#f472b6',
   '#fbbf24', '#f87171', '#94a3b8', '#22d3ee',
 ]
 
-type ActiveKey =
-  | 'all' | 'income' | 'expense'
-  | { type: 'category'; id: string }
-  | { type: 'budget'; id: string }
+const STATUS_DOT: Record<EventBudgetStatus, string> = {
+  planned: '#60a5fa', active: '#34d399', closed: '#94a3b8',
+}
 
-function formatAmount(amount: number) {
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmt(amount: number) {
   return new Intl.NumberFormat('fr-CH', {
     style: 'currency', currency: 'CHF', minimumFractionDigits: 2,
   }).format(amount)
 }
 
-function formatDate(date: string) {
+function fmtDate(date: string) {
   return new Date(date + 'T00:00:00').toLocaleDateString('fr-CH', {
     day: '2-digit', month: 'short', year: 'numeric',
   })
 }
 
-const STATUS_DOT: Record<EventBudgetStatus, string> = {
-  planned: '#60a5fa',
-  active: '#34d399',
-  closed: '#94a3b8',
+function fmtShort(date: string) {
+  return new Date(date + 'T00:00:00').toLocaleDateString('fr-CH', {
+    day: '2-digit', month: 'short',
+  })
 }
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type ActiveKey = 'all' | { type: 'category'; id: string } | { type: 'budget'; id: string }
 
 interface Props {
   finances: Finance[]
   budgets: EventBudgetWithLines[]
   categories: FinanceCategory[]
   associationId: string
+  associationName: string
   callerRole: Role
+  onRefresh: () => void
 }
 
-export function FinancesShell({ finances, budgets, categories, associationId, callerRole }: Props) {
-  const router = useRouter()
+// ─── Main shell ───────────────────────────────────────────────────────────────
+
+export function FinancesShell({
+  finances, budgets, categories, associationId, associationName, callerRole, onRefresh,
+}: Props) {
   const [active, setActive] = useState<ActiveKey>('all')
-  const [query, setQuery] = useState('')
-  const [loadingId, setLoadingId] = useState<string | null>(null)
   const [, startTransition] = useTransition()
+  const [exportOpen, setExportOpen] = useState(false)
+  const exportRef = useRef<HTMLDivElement>(null)
+
+  // Close export dropdown on outside click
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [])
+
+  // Controlled add-dialog (single instance, opened from dossier cards)
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [addDialogCategoryId, setAddDialogCategoryId] = useState<string | null>(null)
 
   const canManage = ['president', 'treasurer'].includes(callerRole)
-
-  const totalIncome = finances.filter(f => f.type === 'income').reduce((s, f) => s + f.amount, 0)
-  const totalExpense = finances.filter(f => f.type === 'expense').reduce((s, f) => s + f.amount, 0)
-  const balance = totalIncome - totalExpense
-  const incomeCount = finances.filter(f => f.type === 'income').length
-  const expenseCount = finances.filter(f => f.type === 'expense').length
 
   const activeBudgetId = typeof active === 'object' && active.type === 'budget' ? active.id : null
   const activeCategoryId = typeof active === 'object' && active.type === 'category' ? active.id : null
   const activeBudget = activeBudgetId ? budgets.find(b => b.id === activeBudgetId) ?? null : null
+  const activeCategory = activeCategoryId ? categories.find(c => c.id === activeCategoryId) ?? null : null
 
-  const categoriesById = useMemo(() => {
-    const m: Record<string, FinanceCategory> = {}
-    for (const c of categories) m[c.id] = c
-    return m
-  }, [categories])
+  // Global stats
+  const totalIncome = finances.filter(f => f.type === 'income').reduce((s, f) => s + f.amount, 0)
+  const totalExpense = finances.filter(f => f.type === 'expense').reduce((s, f) => s + f.amount, 0)
+  const balance = totalIncome - totalExpense
 
-  const filteredFinances = useMemo(() => {
-    if (activeBudgetId) return []
-    return finances
-      .filter(f => {
-        if (active === 'income' && f.type !== 'income') return false
-        if (active === 'expense' && f.type !== 'expense') return false
-        if (activeCategoryId && f.category_id !== activeCategoryId) return false
-        if (!query) return true
-        const q = query.toLowerCase()
-        return f.label.toLowerCase().includes(q) || (f.description ?? '').toLowerCase().includes(q)
-      })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [finances, active, activeCategoryId, activeBudgetId, query])
-
-  // Default category for the add dialog when filtering by one
-  const defaultCategoryId = activeCategoryId ?? null
-
-  async function handleDelete(id: string, e: React.MouseEvent) {
-    e.stopPropagation()
-    setLoadingId(id)
-    const result = await deleteFinanceEntry(id, associationId)
-    if (result.error) toast.error(result.error)
-    else toast.success('Entrée supprimée')
-    setLoadingId(null)
+  function openAddDialog(categoryId: string | null = null) {
+    setAddDialogCategoryId(categoryId)
+    setAddDialogOpen(true)
   }
 
   function handleCreateCategory(name: string, color: string) {
@@ -127,9 +111,9 @@ export function FinancesShell({ finances, budgets, categories, associationId, ca
       const r = await createFinanceCategory(associationId, { name, color })
       if (r.error) toast.error(r.error)
       else {
-        toast.success('Rubrique créée')
+        toast.success('Dossier créé')
         if (r.category) setActive({ type: 'category', id: r.category.id })
-        router.refresh()
+        onRefresh()
       }
     })
   }
@@ -138,7 +122,7 @@ export function FinancesShell({ finances, budgets, categories, associationId, ca
     startTransition(async () => {
       const r = await updateFinanceCategory(id, associationId, { name })
       if (r.error) toast.error(r.error)
-      else router.refresh()
+      else onRefresh()
     })
   }
 
@@ -146,89 +130,158 @@ export function FinancesShell({ finances, budgets, categories, associationId, ca
     startTransition(async () => {
       const r = await updateFinanceCategory(id, associationId, { color })
       if (r.error) toast.error(r.error)
-      else router.refresh()
+      else onRefresh()
     })
   }
 
   function handleDeleteCategory(id: string) {
-    if (!confirm('Supprimer cette rubrique ? Les entrées seront conservées sans rubrique.')) return
+    if (!confirm('Supprimer ce dossier ? Les entrées resteront accessibles sans dossier.')) return
     startTransition(async () => {
       const r = await deleteFinanceCategory(id, associationId)
       if (r.error) toast.error(r.error)
       else {
-        toast.success('Rubrique supprimée')
+        toast.success('Dossier supprimé')
         if (activeCategoryId === id) setActive('all')
-        router.refresh()
+        onRefresh()
       }
     })
+  }
+
+  async function handleDeleteEntry(id: string) {
+    const r = await deleteFinanceEntry(id, associationId)
+    if (r.error) toast.error(r.error)
+    else { toast.success('Entrée supprimée'); onRefresh() }
   }
 
   return (
     <div className="h-full flex flex-col">
       {/* Top bar */}
       <div className="flex items-center justify-between px-8 py-5 border-b border-white/6 shrink-0">
-        <div>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">Opérations</p>
-          <h1 className="text-[28px] font-semibold mt-1 leading-tight tracking-tight">
-            <span className="font-heading italic font-normal text-[32px]">Finances</span>
-          </h1>
+        <div className="flex items-center gap-4">
+          {(activeCategoryId || activeBudgetId) && (
+            <button
+              onClick={() => setActive('all')}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Retour
+            </button>
+          )}
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">Opérations</p>
+            <h1 className="text-[28px] font-semibold mt-1 leading-tight tracking-tight">
+              {activeCategory ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full inline-block" style={{ backgroundColor: activeCategory.color }} />
+                  <span className="font-heading italic font-normal text-[32px]">{activeCategory.name}</span>
+                </span>
+              ) : activeBudget ? (
+                <span className="font-heading italic font-normal text-[32px]">{activeBudget.name}</span>
+              ) : (
+                <span className="font-heading italic font-normal text-[32px]">Finances</span>
+              )}
+            </h1>
+          </div>
         </div>
-        {canManage && !activeBudgetId && (
-          <AddFinanceDialog
-            associationId={associationId}
-            categories={categories}
-            defaultCategoryId={defaultCategoryId}
-          />
-        )}
+        <div className="flex items-center gap-2">
+          {/* Export dropdown */}
+          {!activeBudgetId && finances.length > 0 && (
+            <div ref={exportRef} className="relative">
+              <button
+                onClick={() => setExportOpen(v => !v)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background/60 px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                Exporter
+              </button>
+              {exportOpen && (
+                <div className="absolute right-0 top-full mt-1 w-44 rounded-xl border border-border bg-popover shadow-2xl p-1 z-50">
+                  <button
+                    onClick={() => { exportFinancesCSV(finances, categories); setExportOpen(false) }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-foreground/5 transition-colors"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 text-emerald-500" />
+                    CSV
+                  </button>
+                  <button
+                    onClick={() => { exportFinancesPDF(finances, categories, associationName); setExportOpen(false) }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-foreground/5 transition-colors"
+                  >
+                    <FileText className="h-4 w-4 text-red-400" />
+                    PDF
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          {canManage && !activeBudgetId && (
+            <button
+              onClick={() => openAddDialog(activeCategoryId)}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Nouvelle entrée
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* Controlled add dialog (single instance) */}
+      <AddFinanceDialog
+        associationId={associationId}
+        categories={categories}
+        defaultCategoryId={addDialogCategoryId}
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        onSuccess={onRefresh}
+      />
+
       <div className="flex-1 overflow-hidden flex">
+        {/* ── Left rail ── */}
         <CollapsibleRail>
           <div className="overflow-y-auto h-full p-4 space-y-5">
 
-            {/* Registre */}
-            <div>
-              <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                Registre
+            {/* Solde global mini */}
+            <div className="px-3 py-2 rounded-xl bg-white/[0.04] border border-white/6 space-y-1">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                Solde net
               </p>
+              <p className={cn('text-lg font-bold tabular-nums leading-none', balance < 0 ? 'text-red-300' : 'text-foreground')}>
+                {balance >= 0 ? '+' : ''}{fmt(balance)}
+              </p>
+              <div className="flex items-center gap-2 pt-0.5">
+                <span className="text-[10px] text-emerald-400/80 tabular-nums">+{fmt(totalIncome)}</span>
+                <span className="text-white/20">·</span>
+                <span className="text-[10px] text-red-400/80 tabular-nums">−{fmt(totalExpense)}</span>
+              </div>
+            </div>
+
+            {/* Vue globale */}
+            <div>
+              <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Vue</p>
               <nav className="space-y-0.5">
                 <RailRow
                   icon={<Inbox className="h-3.5 w-3.5 text-muted-foreground" />}
-                  label="Toutes"
-                  count={finances.length}
+                  label="Vue d'ensemble"
                   active={active === 'all'}
                   onClick={() => setActive('all')}
-                />
-                <RailRow
-                  icon={<TrendingUp className="h-3.5 w-3.5 text-emerald-400/70" />}
-                  label="Recettes"
-                  count={incomeCount}
-                  active={active === 'income'}
-                  onClick={() => setActive('income')}
-                />
-                <RailRow
-                  icon={<TrendingDown className="h-3.5 w-3.5 text-red-400/70" />}
-                  label="Dépenses"
-                  count={expenseCount}
-                  active={active === 'expense'}
-                  onClick={() => setActive('expense')}
                 />
               </nav>
             </div>
 
-            {/* Rubriques */}
+            {/* Dossiers */}
             <div>
-              <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                Rubriques
-              </p>
+              <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Dossiers</p>
               <nav className="space-y-0.5">
                 {categories.map(cat => {
-                  const catCount = finances.filter(f => f.category_id === cat.id).length
+                  const catBalance = finances
+                    .filter(f => f.category_id === cat.id)
+                    .reduce((s, f) => s + (f.type === 'income' ? f.amount : -f.amount), 0)
                   return (
-                    <CategoryItem
+                    <CategoryRailItem
                       key={cat.id}
                       category={cat}
-                      count={catCount}
+                      balance={catBalance}
                       active={activeCategoryId === cat.id}
                       canManage={canManage}
                       onSelect={() => setActive({ type: 'category', id: cat.id })}
@@ -238,26 +291,31 @@ export function FinancesShell({ finances, budgets, categories, associationId, ca
                     />
                   )
                 })}
+                {/* Uncategorized if any */}
+                {finances.some(f => !f.category_id) && (
+                  <RailRow
+                    icon={<FolderOpen className="h-3.5 w-3.5 text-muted-foreground/50" />}
+                    label="Sans dossier"
+                    active={active === 'all'}
+                    onClick={() => setActive('all')}
+                    dim
+                  />
+                )}
               </nav>
               {canManage && (
-                <NewCategoryInline
-                  onCreate={handleCreateCategory}
-                  existingCount={categories.length}
-                />
+                <NewCategoryInline onCreate={handleCreateCategory} existingCount={categories.length} />
               )}
             </div>
 
             {/* Budgets */}
             <div>
               <div className="flex items-center justify-between px-3 pb-2">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                  Budgets
-                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Budgets</p>
                 {canManage && <CreateBudgetDialog associationId={associationId} />}
               </div>
               <nav className="space-y-0.5">
                 {budgets.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-muted-foreground/60 italic font-heading">Aucun budget</p>
+                  <p className="px-3 py-1.5 text-xs text-muted-foreground/50 italic font-heading">Aucun budget</p>
                 ) : (
                   budgets.map(b => (
                     <RailRow
@@ -274,7 +332,7 @@ export function FinancesShell({ finances, budgets, categories, associationId, ca
           </div>
         </CollapsibleRail>
 
-        {/* Right pane */}
+        {/* ── Right pane ── */}
         <div className="flex-1 overflow-y-auto">
           {activeBudget ? (
             <BudgetDetail
@@ -283,87 +341,30 @@ export function FinancesShell({ finances, budgets, categories, associationId, ca
               canManage={canManage}
               onBack={() => setActive('all')}
             />
+          ) : activeCategoryId && activeCategory ? (
+            <DossierDetailView
+              category={activeCategory}
+              finances={finances.filter(f => f.category_id === activeCategoryId)}
+              canManage={canManage}
+              onDelete={handleDeleteEntry}
+              onAdd={() => openAddDialog(activeCategoryId)}
+            />
           ) : (
-            <div className="px-8 py-6 space-y-6">
-              {/* Hero balance */}
-              <div className="flex items-baseline justify-between gap-8 pb-6 border-b border-white/6">
-                <div>
-                  {activeCategoryId && categoriesById[activeCategoryId] && (
-                    <div className="flex items-center gap-2 mb-2">
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: categoriesById[activeCategoryId].color }}
-                      />
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                        {categoriesById[activeCategoryId].name}
-                      </span>
-                    </div>
-                  )}
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground mb-2">
-                    {activeCategoryId ? 'Solde de la rubrique' : 'Solde net'}
-                  </p>
-                  <p className={cn('text-4xl font-bold tabular-nums tracking-tight', balance < 0 && 'text-red-400')}>
-                    {formatAmount(
-                      activeCategoryId
-                        ? filteredFinances.reduce((s, f) => s + (f.type === 'income' ? f.amount : -f.amount), 0)
-                        : balance
-                    )}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-1.5 text-sm tabular-nums">
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground text-xs">Recettes</span>
-                    <span className="font-medium text-emerald-300">+{formatAmount(
-                      activeCategoryId
-                        ? filteredFinances.filter(f => f.type === 'income').reduce((s, f) => s + f.amount, 0)
-                        : totalIncome
-                    )}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground text-xs">Dépenses</span>
-                    <span className="font-medium text-red-400">−{formatAmount(
-                      activeCategoryId
-                        ? filteredFinances.filter(f => f.type === 'expense').reduce((s, f) => s + f.amount, 0)
-                        : totalExpense
-                    )}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Search */}
-              <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
-                <input
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                  placeholder="Rechercher une entrée..."
-                  className="w-full rounded-xl border border-white/8 bg-white/[0.03] backdrop-blur-md py-2.5 pl-9 pr-3 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-white/15 focus:border-transparent transition-all"
-                />
-              </div>
-
-              {/* Card grid */}
-              {filteredFinances.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-24 text-center">
-                  <Wallet className="h-8 w-8 text-muted-foreground/20 mb-4" />
-                  <p className="text-sm text-muted-foreground font-heading italic">
-                    {query ? 'Aucune entrée ne correspond' : 'Aucune entrée pour l\'instant'}
-                  </p>
-                </div>
-              ) : (
-                <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-                  {filteredFinances.map(entry => (
-                    <FinanceCard
-                      key={entry.id}
-                      entry={entry}
-                      category={entry.category_id ? categoriesById[entry.category_id] : undefined}
-                      loading={loadingId === entry.id}
-                      canDelete={canManage}
-                      onDelete={(e) => handleDelete(entry.id, e)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+            <OverviewView
+              finances={finances}
+              categories={categories}
+              canManage={canManage}
+              totalIncome={totalIncome}
+              totalExpense={totalExpense}
+              balance={balance}
+              onSelectCategory={(id) => setActive({ type: 'category', id })}
+              onAddToCategory={openAddDialog}
+              onCreateCategory={handleCreateCategory}
+              onRenameCategory={handleRenameCategory}
+              onRecolorCategory={handleRecolorCategory}
+              onDeleteCategory={handleDeleteCategory}
+              onDeleteEntry={handleDeleteEntry}
+            />
           )}
         </div>
       </div>
@@ -371,40 +372,166 @@ export function FinancesShell({ finances, budgets, categories, associationId, ca
   )
 }
 
-// ─── Rail row ────────────────────────────────────────────────────────────────
+// ─── Overview view ────────────────────────────────────────────────────────────
 
-function RailRow({ icon, label, count, active, onClick }: {
-  icon: React.ReactNode
-  label: string
-  count?: number
-  active: boolean
-  onClick: () => void
+function OverviewView({
+  finances, categories, canManage,
+  totalIncome, totalExpense, balance,
+  onSelectCategory, onAddToCategory, onCreateCategory,
+  onRenameCategory, onRecolorCategory, onDeleteCategory,
+  onDeleteEntry,
+}: {
+  finances: Finance[]
+  categories: FinanceCategory[]
+  canManage: boolean
+  totalIncome: number
+  totalExpense: number
+  balance: number
+  onSelectCategory: (id: string) => void
+  onAddToCategory: (categoryId: string | null) => void
+  onCreateCategory: (name: string, color: string) => void
+  onRenameCategory: (id: string, name: string) => void
+  onRecolorCategory: (id: string, color: string) => void
+  onDeleteCategory: (id: string) => void
+  onDeleteEntry: (id: string) => Promise<void>
 }) {
+  const uncategorized = finances.filter(f => !f.category_id)
+  const recent = [...finances].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8)
+
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors text-left',
-        active ? 'bg-white/8 text-foreground' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+    <div className="px-8 py-6 space-y-8">
+      {/* Global balance bar */}
+      <div className="grid grid-cols-3 gap-4">
+        <BalanceTile
+          label="Solde net"
+          amount={balance}
+          sign={balance >= 0 ? '+' : ''}
+          colorClass={balance < 0 ? 'text-red-300' : 'text-foreground'}
+          subLabel={`${finances.length} entrée${finances.length !== 1 ? 's' : ''}`}
+        />
+        <BalanceTile
+          label="Total recettes"
+          amount={totalIncome}
+          sign="+"
+          colorClass="text-emerald-300"
+          subLabel={`${finances.filter(f => f.type === 'income').length} recette${finances.filter(f => f.type === 'income').length !== 1 ? 's' : ''}`}
+        />
+        <BalanceTile
+          label="Total dépenses"
+          amount={totalExpense}
+          sign="−"
+          colorClass="text-red-300"
+          subLabel={`${finances.filter(f => f.type === 'expense').length} dépense${finances.filter(f => f.type === 'expense').length !== 1 ? 's' : ''}`}
+        />
+      </div>
+
+      {/* Dossiers grid */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-[0.15em] text-[10px]">
+            Dossiers
+          </h2>
+          <span className="text-xs text-muted-foreground/50">{categories.length} dossier{categories.length !== 1 ? 's' : ''}</span>
+        </div>
+
+        {categories.length === 0 && !canManage && (
+          <p className="text-sm text-muted-foreground/60 font-heading italic py-4">
+            Aucun dossier. Le président ou le trésorier peut en créer.
+          </p>
+        )}
+
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+          {categories.map(cat => {
+            const catFinances = finances.filter(f => f.category_id === cat.id)
+            const catIncome = catFinances.filter(f => f.type === 'income').reduce((s, f) => s + f.amount, 0)
+            const catExpense = catFinances.filter(f => f.type === 'expense').reduce((s, f) => s + f.amount, 0)
+            const catBalance = catIncome - catExpense
+            return (
+              <DossierCard
+                key={cat.id}
+                category={cat}
+                income={catIncome}
+                expense={catExpense}
+                balance={catBalance}
+                count={catFinances.length}
+                canManage={canManage}
+                onClick={() => onSelectCategory(cat.id)}
+                onAdd={() => onAddToCategory(cat.id)}
+                onRename={(name) => onRenameCategory(cat.id, name)}
+                onRecolor={(color) => onRecolorCategory(cat.id, color)}
+                onDelete={() => onDeleteCategory(cat.id)}
+              />
+            )
+          })}
+
+          {/* "Sans dossier" card if needed */}
+          {uncategorized.length > 0 && (
+            <UncategorizedCard
+              finances={uncategorized}
+              canManage={canManage}
+              onAdd={() => onAddToCategory(null)}
+            />
+          )}
+
+          {/* Empty "create" card for managers */}
+          {canManage && (
+            <NewDossierCard existingCount={categories.length} onCreate={onCreateCategory} />
+          )}
+        </div>
+      </section>
+
+      {/* Recent transactions */}
+      {recent.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.15em]">
+            Entrées récentes
+          </h2>
+          <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
+            <div className="divide-y divide-white/5">
+              {recent.map(entry => (
+                <TransactionRow
+                  key={entry.id}
+                  entry={entry}
+                  category={categories.find(c => c.id === entry.category_id)}
+                  canDelete={canManage}
+                  onDelete={() => onDeleteEntry(entry.id)}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
       )}
-    >
-      <span className="shrink-0 flex items-center justify-center w-3.5">{icon}</span>
-      <span className="truncate flex-1">{label}</span>
-      {count !== undefined && count > 0 && (
-        <span className="text-[10px] tabular-nums text-muted-foreground/60 shrink-0">{count}</span>
-      )}
-    </button>
+    </div>
   )
 }
 
-// ─── Category item (inline rename/recolor/delete) ────────────────────────────
+// ─── Balance tile ─────────────────────────────────────────────────────────────
 
-function CategoryItem({ category, count, active, canManage, onSelect, onRename, onRecolor, onDelete }: {
+function BalanceTile({ label, amount, sign, colorClass, subLabel }: {
+  label: string; amount: number; sign: string; colorClass: string; subLabel: string
+}) {
+  return (
+    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">{label}</p>
+      <p className={cn('text-2xl font-bold tabular-nums leading-none', colorClass)}>
+        {sign}{fmt(amount)}
+      </p>
+      <p className="text-[11px] text-muted-foreground/60 mt-1.5">{subLabel}</p>
+    </div>
+  )
+}
+
+// ─── Dossier card ─────────────────────────────────────────────────────────────
+
+function DossierCard({
+  category, income, expense, balance, count, canManage,
+  onClick, onAdd, onRename, onRecolor, onDelete,
+}: {
   category: FinanceCategory
-  count: number
-  active: boolean
+  income: number; expense: number; balance: number; count: number
   canManage: boolean
-  onSelect: () => void
+  onClick: () => void
+  onAdd: () => void
   onRename: (name: string) => void
   onRecolor: (color: string) => void
   onDelete: () => void
@@ -426,6 +553,487 @@ function CategoryItem({ category, count, active, canManage, onSelect, onRename, 
     return () => document.removeEventListener('mousedown', onDoc)
   }, [colorOpen])
 
+  function commitName() {
+    const n = name.trim()
+    if (n && n !== category.name) onRename(n)
+    else setName(category.name)
+    setEditing(false)
+  }
+
+  const isPositive = balance >= 0
+
+  return (
+    <div className="group relative flex flex-col rounded-2xl border border-white/8 bg-white/[0.03] overflow-hidden hover:border-white/15 hover:bg-white/[0.05] transition-all">
+      {/* Color top bar */}
+      <div className="h-1 w-full" style={{ backgroundColor: category.color }} />
+
+      <div className="p-5 flex flex-col gap-4">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button
+              onClick={() => canManage && setColorOpen(true)}
+              className={cn('shrink-0 h-2.5 w-2.5 rounded-full', canManage && 'cursor-pointer hover:scale-125 transition-transform')}
+              style={{ backgroundColor: category.color }}
+              title={canManage ? 'Changer la couleur' : undefined}
+            />
+            {editing ? (
+              <input
+                ref={inputRef}
+                value={name}
+                onChange={e => setName(e.target.value)}
+                onBlur={commitName}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.preventDefault(); commitName() }
+                  if (e.key === 'Escape') { setName(category.name); setEditing(false) }
+                }}
+                onClick={e => e.stopPropagation()}
+                className="flex-1 bg-white/5 border border-white/15 rounded-lg px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-white/20"
+                maxLength={60}
+              />
+            ) : (
+              <button
+                onClick={onClick}
+                className="flex-1 text-left text-sm font-semibold truncate hover:text-foreground transition-colors"
+              >
+                {category.name}
+              </button>
+            )}
+          </div>
+
+          {canManage && !editing && (
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+              <button
+                onClick={e => { e.stopPropagation(); setEditing(true) }}
+                className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-muted-foreground hover:text-foreground"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+              <button
+                onClick={e => { e.stopPropagation(); onDelete() }}
+                className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-destructive/15 text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Balance */}
+        <div
+          className="cursor-pointer"
+          onClick={onClick}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70 mb-1">
+            Solde du dossier
+          </p>
+          <p className={cn('text-3xl font-bold tabular-nums leading-none', isPositive ? 'text-foreground' : 'text-red-300')}>
+            {isPositive ? '+' : '−'}{fmt(Math.abs(balance))}
+          </p>
+        </div>
+
+        {/* Income / Expense breakdown */}
+        <div
+          className="grid grid-cols-2 gap-2 cursor-pointer"
+          onClick={onClick}
+        >
+          <div className="rounded-xl bg-emerald-500/8 border border-emerald-500/15 px-3 py-2">
+            <p className="text-[10px] text-emerald-400/70 font-medium uppercase tracking-wider mb-0.5">Recettes</p>
+            <p className="text-sm font-semibold tabular-nums text-emerald-300">+{fmt(income)}</p>
+          </div>
+          <div className="rounded-xl bg-red-500/8 border border-red-500/15 px-3 py-2">
+            <p className="text-[10px] text-red-400/70 font-medium uppercase tracking-wider mb-0.5">Dépenses</p>
+            <p className="text-sm font-semibold tabular-nums text-red-300">−{fmt(expense)}</p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between pt-1">
+          <button
+            onClick={onClick}
+            className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          >
+            {count} entrée{count !== 1 ? 's' : ''}
+          </button>
+          {canManage && (
+            <button
+              onClick={e => { e.stopPropagation(); onAdd() }}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors border border-white/8"
+            >
+              <Plus className="h-3 w-3" />
+              Ajouter
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Color picker popover */}
+      {colorOpen && (
+        <div
+          ref={colorRef}
+          className="absolute left-4 top-12 z-20 flex flex-wrap gap-1.5 p-2 rounded-xl border border-white/10 bg-popover/95 backdrop-blur-2xl shadow-xl w-[160px]"
+        >
+          {COLOR_PRESETS.map(c => (
+            <button
+              key={c}
+              onClick={() => { onRecolor(c); setColorOpen(false) }}
+              className={cn('h-6 w-6 rounded-full transition-transform hover:scale-110 ring-1',
+                c.toLowerCase() === category.color.toLowerCase() ? 'ring-white' : 'ring-white/15')}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Uncategorized card ───────────────────────────────────────────────────────
+
+function UncategorizedCard({ finances, canManage, onAdd }: {
+  finances: Finance[]
+  canManage: boolean
+  onAdd: () => void
+}) {
+  const income = finances.filter(f => f.type === 'income').reduce((s, f) => s + f.amount, 0)
+  const expense = finances.filter(f => f.type === 'expense').reduce((s, f) => s + f.amount, 0)
+  const balance = income - expense
+
+  return (
+    <div className="group flex flex-col rounded-2xl border border-white/6 bg-white/[0.02] overflow-hidden opacity-70 hover:opacity-100 transition-all">
+      <div className="h-1 w-full bg-white/10" />
+      <div className="p-5 flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <FolderOpen className="h-3.5 w-3.5 text-muted-foreground/50" />
+          <span className="text-sm font-medium text-muted-foreground">Sans dossier</span>
+        </div>
+        <div>
+          <p className="text-[10px] text-muted-foreground/60 font-semibold uppercase tracking-wider mb-1">Solde</p>
+          <p className={cn('text-2xl font-bold tabular-nums', balance >= 0 ? 'text-foreground/70' : 'text-red-300/70')}>
+            {balance >= 0 ? '+' : '−'}{fmt(Math.abs(balance))}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/10 px-3 py-2">
+            <p className="text-[10px] text-emerald-400/60 font-medium uppercase tracking-wider mb-0.5">Recettes</p>
+            <p className="text-xs font-semibold tabular-nums text-emerald-300/70">+{fmt(income)}</p>
+          </div>
+          <div className="rounded-xl bg-red-500/5 border border-red-500/10 px-3 py-2">
+            <p className="text-[10px] text-red-400/60 font-medium uppercase tracking-wider mb-0.5">Dépenses</p>
+            <p className="text-xs font-semibold tabular-nums text-red-300/70">−{fmt(expense)}</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-[11px] text-muted-foreground/40">{finances.length} entrée{finances.length !== 1 ? 's' : ''}</span>
+          {canManage && (
+            <button
+              onClick={onAdd}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors border border-white/8"
+            >
+              <Plus className="h-3 w-3" />
+              Ajouter
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── New dossier placeholder card ─────────────────────────────────────────────
+
+function NewDossierCard({ existingCount, onCreate }: { existingCount: number; onCreate: (name: string, color: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [color, setColor] = useState(COLOR_PRESETS[existingCount % COLOR_PRESETS.length])
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [, startTransition] = useTransition()
+
+  useEffect(() => { if (open) inputRef.current?.focus() }, [open])
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-transparent hover:bg-white/[0.03] hover:border-white/30 transition-all min-h-[200px] gap-2 text-muted-foreground/50 hover:text-muted-foreground"
+      >
+        <Plus className="h-6 w-6" />
+        <span className="text-sm font-medium">Nouveau dossier</span>
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex flex-col rounded-2xl border border-white/15 bg-white/[0.03] overflow-hidden">
+      <div className="h-1 w-full" style={{ backgroundColor: color }} />
+      <div className="p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {}}
+            className="shrink-0 h-2.5 w-2.5 rounded-full"
+            style={{ backgroundColor: color }}
+          />
+          <input
+            ref={inputRef}
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Escape') { setName(''); setOpen(false) }
+            }}
+            placeholder="Nom du dossier"
+            maxLength={60}
+            className="flex-1 bg-transparent text-sm font-semibold outline-none placeholder:text-muted-foreground/40"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {COLOR_PRESETS.map(c => (
+            <button
+              key={c}
+              onClick={() => setColor(c)}
+              className={cn('h-5 w-5 rounded-full transition-transform hover:scale-110 ring-1', c === color ? 'ring-white' : 'ring-white/15')}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={() => { setName(''); setOpen(false) }}
+            className="h-8 px-3 text-xs rounded-lg hover:bg-white/8 text-muted-foreground transition-colors flex items-center gap-1"
+          >
+            <X className="h-3 w-3" /> Annuler
+          </button>
+          <button
+            onClick={() => {
+              const n = name.trim()
+              if (!n) return
+              onCreate(n, color)
+              setName(''); setOpen(false)
+            }}
+            className="h-8 px-3 text-xs rounded-lg bg-foreground text-background hover:opacity-90 flex items-center gap-1 font-medium"
+          >
+            <Check className="h-3 w-3" /> Créer
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Dossier detail view ──────────────────────────────────────────────────────
+
+function DossierDetailView({
+  category, finances, canManage, onDelete, onAdd,
+}: {
+  category: FinanceCategory
+  finances: Finance[]
+  canManage: boolean
+  onDelete: (id: string) => Promise<void>
+  onAdd: () => void
+}) {
+  const income = finances.filter(f => f.type === 'income').reduce((s, f) => s + f.amount, 0)
+  const expense = finances.filter(f => f.type === 'expense').reduce((s, f) => s + f.amount, 0)
+  const balance = income - expense
+  const sorted = [...finances].sort((a, b) => b.date.localeCompare(a.date))
+
+  return (
+    <div className="px-8 py-6 space-y-6">
+      {/* Dossier balance header */}
+      <div className="rounded-2xl border border-white/8 bg-white/[0.03] overflow-hidden">
+        <div className="h-1" style={{ backgroundColor: category.color }} />
+        <div className="p-6 grid grid-cols-3 gap-6">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Solde du dossier</p>
+            <p className={cn('text-3xl font-bold tabular-nums', balance < 0 ? 'text-red-300' : 'text-foreground')}>
+              {balance >= 0 ? '+' : '−'}{fmt(Math.abs(balance))}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-400/70 mb-1.5">Recettes</p>
+            <p className="text-2xl font-bold tabular-nums text-emerald-300">+{fmt(income)}</p>
+            <p className="text-[11px] text-muted-foreground/60 mt-1">{finances.filter(f => f.type === 'income').length} entrée{finances.filter(f => f.type === 'income').length !== 1 ? 's' : ''}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-red-400/70 mb-1.5">Dépenses</p>
+            <p className="text-2xl font-bold tabular-nums text-red-300">−{fmt(expense)}</p>
+            <p className="text-[11px] text-muted-foreground/60 mt-1">{finances.filter(f => f.type === 'expense').length} entrée{finances.filter(f => f.type === 'expense').length !== 1 ? 's' : ''}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Add button */}
+      {canManage && (
+        <div className="flex justify-end">
+          <button
+            onClick={onAdd}
+            className="inline-flex items-center gap-2 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 px-4 py-2 text-sm font-medium transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Ajouter une entrée
+          </button>
+        </div>
+      )}
+
+      {/* Transaction list */}
+      {sorted.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <Wallet className="h-8 w-8 text-muted-foreground/20 mb-4" />
+          <p className="text-sm text-muted-foreground font-heading italic">Aucune entrée dans ce dossier</p>
+          {canManage && (
+            <button onClick={onAdd} className="mt-4 text-xs text-muted-foreground/60 hover:text-foreground transition-colors">
+              + Ajouter la première entrée
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
+          {/* Table header */}
+          <div className="grid grid-cols-[80px_60px_1fr_120px_8px] gap-4 px-5 py-2.5 border-b border-white/6">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Date</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Type</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Libellé</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50 text-right">Montant</span>
+            <span />
+          </div>
+          <div className="divide-y divide-white/4">
+            {sorted.map(entry => (
+              <TransactionRow
+                key={entry.id}
+                entry={entry}
+                canDelete={canManage}
+                onDelete={() => onDelete(entry.id)}
+                compact
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Transaction row ──────────────────────────────────────────────────────────
+
+function TransactionRow({ entry, category, canDelete, onDelete, compact = false }: {
+  entry: Finance
+  category?: FinanceCategory
+  canDelete: boolean
+  onDelete: () => void
+  compact?: boolean
+}) {
+  const [deleting, setDeleting] = useState(false)
+  const isIncome = entry.type === 'income'
+
+  async function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation()
+    setDeleting(true)
+    await onDelete()
+    setDeleting(false)
+  }
+
+  if (compact) {
+    return (
+      <div className="group grid grid-cols-[80px_60px_1fr_120px_28px] gap-4 items-center px-5 py-3 hover:bg-white/[0.03] transition-colors">
+        <span className="text-[11px] tabular-nums text-muted-foreground/70">{fmtShort(entry.date)}</span>
+        <span className={cn(
+          'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide',
+          isIncome ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+        )}>
+          {isIncome ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+          {isIncome ? '+' : '−'}
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm truncate">{entry.label}</p>
+          {entry.description && <p className="text-[11px] text-muted-foreground/60 truncate">{entry.description}</p>}
+        </div>
+        <span className={cn('text-sm font-semibold tabular-nums text-right', isIncome ? 'text-emerald-300' : 'text-red-300')}>
+          {isIncome ? '+' : '−'}{fmt(entry.amount)}
+        </span>
+        {canDelete ? (
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="opacity-0 group-hover:opacity-100 flex h-6 w-6 items-center justify-center rounded-md hover:bg-red-500/20 text-muted-foreground/50 hover:text-red-300 transition-all"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        ) : <span />}
+      </div>
+    )
+  }
+
+  // Non-compact (overview recent list)
+  return (
+    <div className="group flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.03] transition-colors">
+      <span className={cn(
+        'shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium uppercase tracking-wide',
+        isIncome ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+      )}>
+        {isIncome ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+        {isIncome ? 'Recette' : 'Dépense'}
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm truncate">{entry.label}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-[11px] tabular-nums text-muted-foreground/60">{fmtDate(entry.date)}</span>
+          {category && (
+            <>
+              <span className="text-muted-foreground/30">·</span>
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/60">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: category.color }} />
+                {category.name}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+      <span className={cn('text-sm font-semibold tabular-nums shrink-0', isIncome ? 'text-emerald-300' : 'text-red-300')}>
+        {isIncome ? '+' : '−'}{fmt(entry.amount)}
+      </span>
+      {canDelete && (
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="opacity-0 group-hover:opacity-100 shrink-0 flex h-7 w-7 items-center justify-center rounded-lg hover:bg-red-500/20 text-muted-foreground/50 hover:text-red-300 transition-all"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Rail helpers ─────────────────────────────────────────────────────────────
+
+function RailRow({ icon, label, active, onClick, dim }: {
+  icon: React.ReactNode; label: string; active: boolean
+  onClick: () => void; dim?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors text-left',
+        active ? 'bg-white/8 text-foreground' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground',
+        dim && 'opacity-60'
+      )}
+    >
+      <span className="shrink-0 flex items-center justify-center w-3.5">{icon}</span>
+      <span className="truncate flex-1">{label}</span>
+    </button>
+  )
+}
+
+function CategoryRailItem({ category, balance, active, canManage, onSelect, onRename, onRecolor, onDelete }: {
+  category: FinanceCategory; balance: number; active: boolean; canManage: boolean
+  onSelect: () => void; onRename: (n: string) => void; onRecolor: (c: string) => void; onDelete: () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(category.name)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setName(category.name) }, [category.name])
+  useEffect(() => { if (editing) inputRef.current?.select() }, [editing])
+
   function commit() {
     const n = name.trim()
     if (n && n !== category.name) onRename(n)
@@ -435,15 +1043,10 @@ function CategoryItem({ category, count, active, canManage, onSelect, onRename, 
 
   return (
     <div className={cn(
-      'group relative flex items-center gap-2.5 rounded-lg pl-3 pr-1 py-2 text-sm transition-colors',
+      'group relative flex items-center gap-2 rounded-lg pl-3 pr-1 py-2 text-sm transition-colors',
       active ? 'bg-white/8 text-foreground' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
     )}>
-      <button
-        onClick={() => canManage && setColorOpen(true)}
-        className={cn('shrink-0 h-2 w-2 rounded-full transition-transform', canManage && 'cursor-pointer hover:scale-125')}
-        style={{ backgroundColor: category.color }}
-        title={canManage ? 'Changer la couleur' : undefined}
-      />
+      <span className="shrink-0 h-2 w-2 rounded-full" style={{ backgroundColor: category.color }} />
       {editing ? (
         <input
           ref={inputRef}
@@ -458,58 +1061,31 @@ function CategoryItem({ category, count, active, canManage, onSelect, onRename, 
           maxLength={60}
         />
       ) : (
-        <button onClick={onSelect} className="flex-1 truncate text-left">
-          {category.name}
-        </button>
+        <button onClick={onSelect} className="flex-1 truncate text-left">{category.name}</button>
       )}
-      {count > 0 && !editing && (
-        <span className="text-[10px] tabular-nums text-muted-foreground/60 shrink-0 mr-1">{count}</span>
+      {!editing && (
+        <span className={cn('text-[10px] tabular-nums shrink-0 mr-1', balance >= 0 ? 'text-emerald-400/60' : 'text-red-400/60')}>
+          {balance >= 0 ? '+' : '−'}{new Intl.NumberFormat('fr-CH', { maximumFractionDigits: 0 }).format(Math.abs(balance))}
+        </span>
       )}
       {canManage && !editing && (
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={e => { e.stopPropagation(); setEditing(true) }}
-            className="h-6 w-6 flex items-center justify-center rounded hover:bg-white/10 text-muted-foreground hover:text-foreground"
-            title="Renommer"
-          >
+          <button onClick={e => { e.stopPropagation(); setEditing(true) }}
+            className="h-6 w-6 flex items-center justify-center rounded hover:bg-white/10 text-muted-foreground hover:text-foreground">
             <Pencil className="h-3 w-3" />
           </button>
-          <button
-            onClick={e => { e.stopPropagation(); onDelete() }}
-            className="h-6 w-6 flex items-center justify-center rounded hover:bg-destructive/15 text-muted-foreground hover:text-destructive"
-            title="Supprimer"
-          >
+          <button onClick={e => { e.stopPropagation(); onDelete() }}
+            className="h-6 w-6 flex items-center justify-center rounded hover:bg-destructive/15 text-muted-foreground hover:text-destructive">
             <Trash2 className="h-3 w-3" />
           </button>
-        </div>
-      )}
-      {colorOpen && (
-        <div
-          ref={colorRef}
-          className="absolute left-2 top-full mt-1 z-20 flex flex-wrap gap-1.5 p-2 rounded-lg border border-white/10 bg-popover/95 backdrop-blur-2xl shadow-xl w-[152px]"
-        >
-          {COLOR_PRESETS.map(c => (
-            <button
-              key={c}
-              onClick={() => { onRecolor(c); setColorOpen(false) }}
-              className={cn(
-                'h-5 w-5 rounded-full transition-transform hover:scale-110 ring-1',
-                c.toLowerCase() === category.color.toLowerCase() ? 'ring-white' : 'ring-white/15'
-              )}
-              style={{ backgroundColor: c }}
-            />
-          ))}
         </div>
       )}
     </div>
   )
 }
 
-// ─── New category inline ──────────────────────────────────────────────────────
-
 function NewCategoryInline({ onCreate, existingCount }: {
-  onCreate: (name: string, color: string) => void
-  existingCount: number
+  onCreate: (name: string, color: string) => void; existingCount: number
 }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
@@ -527,12 +1103,10 @@ function NewCategoryInline({ onCreate, existingCount }: {
 
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        className="mt-2 w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
-      >
+      <button onClick={() => setOpen(true)}
+        className="mt-2 w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors">
         <Plus className="h-3.5 w-3.5" />
-        Nouvelle rubrique
+        Nouveau dossier
       </button>
     )
   }
@@ -549,99 +1123,27 @@ function NewCategoryInline({ onCreate, existingCount }: {
             if (e.key === 'Enter') { e.preventDefault(); commit() }
             if (e.key === 'Escape') { setName(''); setOpen(false) }
           }}
-          placeholder="Nom de la rubrique"
+          placeholder="Nom du dossier"
           maxLength={60}
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/50"
         />
       </div>
       <div className="flex flex-wrap gap-1">
         {COLOR_PRESETS.map(c => (
-          <button
-            key={c}
-            onClick={() => setColor(c)}
+          <button key={c} onClick={() => setColor(c)}
             className={cn('h-4 w-4 rounded-full transition-transform hover:scale-110 ring-1', c === color ? 'ring-white' : 'ring-white/15')}
-            style={{ backgroundColor: c }}
-          />
+            style={{ backgroundColor: c }} />
         ))}
       </div>
       <div className="flex items-center justify-end gap-1 pt-1">
-        <button onClick={() => { setName(''); setOpen(false) }} className="h-7 px-2 text-xs rounded-md hover:bg-white/5 text-muted-foreground transition-colors">
+        <button onClick={() => { setName(''); setOpen(false) }}
+          className="h-7 px-2 text-xs rounded-md hover:bg-white/5 text-muted-foreground transition-colors">
           <X className="h-3 w-3" />
         </button>
-        <button onClick={commit} className="h-7 px-2 text-xs rounded-md bg-foreground text-background hover:opacity-90 flex items-center gap-1">
-          <Check className="h-3 w-3" />
-          Créer
+        <button onClick={commit}
+          className="h-7 px-2 text-xs rounded-md bg-foreground text-background hover:opacity-90 flex items-center gap-1">
+          <Check className="h-3 w-3" /> Créer
         </button>
-      </div>
-    </div>
-  )
-}
-
-// ─── Finance card ─────────────────────────────────────────────────────────────
-
-function FinanceCard({ entry, category, loading, canDelete, onDelete }: {
-  entry: Finance
-  category?: FinanceCategory
-  loading: boolean
-  canDelete: boolean
-  onDelete: (e: React.MouseEvent) => void
-}) {
-  const isIncome = entry.type === 'income'
-
-  return (
-    <div className={cn(
-      'group relative flex flex-col rounded-2xl border border-white/8 bg-white/[0.03] backdrop-blur-md overflow-hidden transition-all hover:border-white/15 hover:bg-white/[0.05] hover:-translate-y-0.5',
-      loading && 'opacity-40'
-    )}>
-      <div className={cn(
-        'relative h-28 w-full border-b border-white/[0.06] flex items-center justify-center',
-        isIncome
-          ? 'bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent'
-          : 'bg-gradient-to-br from-red-500/15 via-red-500/5 to-transparent'
-      )}>
-        <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-          <span className={cn(
-            'inline-flex items-center gap-1.5 rounded-full bg-black/40 backdrop-blur-md px-2 py-1 text-[10px] uppercase tracking-wider ring-1',
-            isIncome ? 'text-emerald-200 ring-emerald-400/20' : 'text-red-200 ring-red-400/20'
-          )}>
-            {isIncome ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {isIncome ? 'Recette' : 'Dépense'}
-          </span>
-          {category && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-black/40 backdrop-blur-md px-2 py-1 text-[10px] ring-1 ring-white/10 text-white/80">
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: category.color }} />
-              {category.name}
-            </span>
-          )}
-        </div>
-
-        {canDelete && (
-          <button
-            type="button"
-            onClick={onDelete}
-            className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-lg bg-black/40 backdrop-blur-md ring-1 ring-white/10 opacity-0 group-hover:opacity-100 hover:bg-red-500/30 hover:text-red-200 text-white/80 transition-all"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        )}
-
-        <p className={cn(
-          'text-3xl font-bold tabular-nums tracking-tight',
-          isIncome ? 'text-emerald-100' : 'text-red-100'
-        )}>
-          {isIncome ? '+' : '−'}{formatAmount(entry.amount)}
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-2 p-4">
-        <p className="text-sm font-medium leading-snug line-clamp-2">{entry.label}</p>
-        {entry.description && (
-          <p className="text-xs text-muted-foreground line-clamp-2">{entry.description}</p>
-        )}
-        <div className="flex items-center gap-1.5 pt-2 mt-auto border-t border-white/[0.06]">
-          <CalendarDays className="h-3 w-3 text-muted-foreground/50 shrink-0" />
-          <span className="text-[11px] tabular-nums text-muted-foreground/70">{formatDate(entry.date)}</span>
-        </div>
       </div>
     </div>
   )

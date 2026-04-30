@@ -8,8 +8,8 @@ import FinancesLoading from '@/app/dashboard/finances/loading'
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 export function FinancesView() {
-  const { activeMembership } = useAssociation()
-  const { data, isLoading } = useSWR(
+  const { activeMembership, activeAssociation } = useAssociation()
+  const { data, isLoading, mutate } = useSWR(
     activeMembership ? `/api/finances?associationId=${activeMembership.association_id}` : null,
     fetcher,
     { revalidateOnFocus: false }
@@ -24,6 +24,8 @@ export function FinancesView() {
       categories={data.categories}
       associationId={activeMembership.association_id}
       callerRole={activeMembership.role}
+      associationName={activeAssociation?.name ?? ''}
+      onRefresh={() => mutate()}
     />
   )
 }

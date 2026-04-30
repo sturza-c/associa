@@ -398,3 +398,66 @@ export async function leaveAssociation(associationId: string) {
   return { success: true }
 }
 
+// ─── Public page (slug + visibility) ─────────────────────────────────────────
+
+function toSlug(str: string) {
+  return str
+    .toLowerCase()
+    .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+}
+
+export async function updatePublicPage(
+  associationId: string,
+  payload: { slug?: string; is_public?: boolean },
+) {
+  const auth = await assertPresident(associationId)
+  if ('error' in auth) return { error: auth.error }
+
+  const update: Record<string, unknown> = {}
+
+  if (payload.slug !== undefined) {
+    const raw = payload.slug.trim()
+    if (!raw) return { error: 'Le slug ne peut pas être vide' }
+    const slug = toSlug(raw)
+    if (slug.length < 2) return { error: 'Slug trop court (min 2 caractères)' }
+    update.slug = slug
+  }
+
+  if (payload.is_public !== undefined) {
+    update.is_public = payload.is_public
+  }
+
+  if (Object.keys(update).length === 0) return { success: true }
+
+  const admin = createAdminClient()
+
+  // Check slug uniqueness
+  if (update.slug) {
+    const { data: existing } = await admin
+      .from('associations')
+      .select('id')
+      .eq('slug', update.slug)
+      .neq('id', associationId)
+      .maybeSingle()
+    if (existing) return { error: 'Ce slug est déjà utilisé par une autre association' }
+  }
+
+  const { error } = await admin
+    .from('associations')
+    .update(update)
+    .eq('id', associationId)
+
+  if (error) {
+    if (error.code === '42703') return { error: 'Colonnes manquantes — exécute sql/public_page.sql' }
+    if (error.code === '23505') return { error: 'Ce slug est déjà pris' }
+    return { error: 'Erreur lors de la mise à jour' }
+  }
+
+  revalidatePath('/dashboard/settings')
+  revalidatePath(`/a/${update.slug ?? ''}`)
+  return { success: true, slug: update.slug as string | undefined }
+}
+

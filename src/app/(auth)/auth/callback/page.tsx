@@ -34,24 +34,9 @@ function Callback() {
       router.replace(path)
     }
 
-    // ── Flow 1: PKCE code (query param) ─────────────────────────────────────
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ error: err }) => {
-        if (err) {
-          console.error('exchangeCodeForSession:', err.message)
-          goTo('/login?error=auth_callback_failed')
-        } else {
-          goTo(next)
-        }
-      })
-      return
-    }
-
-    // ── Flow 2: Hash-based tokens (implicit / recovery) ──────────────────────
-    // The Supabase browser client detects auth tokens in the hash automatically
-    // and fires onAuthStateChange. We subscribe before anything else to avoid
-    // missing the event.
-
+    // ── Subscribe to auth events FIRST (works for both PKCE and hash flows) ──
+    // PASSWORD_RECOVERY always → /reset-password
+    // SIGNED_IN            always → next (default: /dashboard)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!session) return
@@ -63,10 +48,28 @@ function Callback() {
       }
     )
 
-    // Fallback: event may have already fired before we subscribed — check now
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) goTo(next)
-    })
+    // ── Flow 1: PKCE code (query param) ─────────────────────────────────────
+    // Exchange the code — navigation is handled by onAuthStateChange above.
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error: err }) => {
+        if (err) {
+          console.error('exchangeCodeForSession:', err.message)
+          goTo('/login?error=auth_callback_failed')
+        }
+        // On success onAuthStateChange fires PASSWORD_RECOVERY or SIGNED_IN
+      })
+    } else {
+      // ── Flow 2: Hash-based tokens (implicit / recovery) ────────────────────
+      // The browser client auto-processes the hash and fires onAuthStateChange.
+      // Fallback: if the event already fired before we subscribed, check now.
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        // Only use as fallback when there is NO hash being processed
+        // (hash-based recovery will be caught by onAuthStateChange).
+        if (session && !window.location.hash.includes('type=recovery')) {
+          goTo(next)
+        }
+      })
+    }
 
     // Hard timeout: if nothing resolved in 8s, something went wrong
     const timer = setTimeout(() => {

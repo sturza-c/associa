@@ -48,7 +48,7 @@ export async function getCalendarItems(
       date: e.event_date,
       title: e.name,
       subtitle: e.status,
-      href: '/dashboard/finances',
+      href: '/dashboard/events',
       color: '#6366f1',
     })
   }

@@ -14,6 +14,7 @@ import {
   FileText,
   Wallet,
   Calendar,
+  CalendarDays,
   MessageSquare,
   ChevronsUpDown,
   LogOut,
@@ -22,16 +23,19 @@ import {
   ChevronsRight,
   Sun,
   Moon,
+  BadgePercent,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const PILOTAGE_ITEMS = [
   { href: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { href: '/dashboard/members', label: 'Membres', icon: Users, countKey: 'members' as const },
+  { href: '/dashboard/cotisations', label: 'Cotisations', icon: BadgePercent },
 ]
 
 const OPERATIONS_ITEMS = [
   { href: '/dashboard/tasks', label: 'Tâches', icon: CheckSquare },
+  { href: '/dashboard/events', label: 'Événements', icon: CalendarDays },
   { href: '/dashboard/calendar', label: 'Agenda', icon: Calendar },
   { href: '/dashboard/documents', label: 'Documents', icon: FileText },
   { href: '/dashboard/finances', label: 'Finances', icon: Wallet },
@@ -100,9 +104,13 @@ function UserMenu({ profile, collapsed }: { profile: UserProfile; collapsed: boo
         <button
           onClick={() => setOpen(v => !v)}
           title={profile.full_name || profile.email}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/10 text-xs font-semibold hover:bg-foreground/15 transition-colors"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/10 text-xs font-semibold hover:bg-foreground/15 transition-colors overflow-hidden"
         >
-          {getInitials(profile.full_name, profile.email)}
+          {profile.avatar_url
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={profile.avatar_url} alt={profile.full_name ?? profile.email} className="h-full w-full object-cover" />
+            : getInitials(profile.full_name, profile.email)
+          }
         </button>
         {open && (
           <div className="absolute bottom-full left-0 mb-2 w-56 rounded-xl border border-border bg-popover backdrop-blur-2xl p-1 shadow-2xl z-50">
@@ -129,8 +137,12 @@ function UserMenu({ profile, collapsed }: { profile: UserProfile; collapsed: boo
         onClick={() => setOpen(v => !v)}
         className="flex w-full items-center gap-3 rounded-xl p-2 hover:bg-foreground/5 transition-colors text-left"
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-xs font-semibold">
-          {getInitials(profile.full_name, profile.email)}
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-xs font-semibold overflow-hidden">
+          {profile.avatar_url
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={profile.avatar_url} alt={profile.full_name ?? profile.email} className="h-full w-full object-cover" />
+            : getInitials(profile.full_name, profile.email)
+          }
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate leading-tight">{profile.full_name || 'Mon compte'}</p>

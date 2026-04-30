@@ -8,7 +8,7 @@ import MembersLoading from '@/app/dashboard/members/loading'
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 export function MembersView() {
-  const { activeMembership } = useAssociation()
+  const { activeMembership, activeAssociation } = useAssociation()
   const { data, isLoading } = useSWR(
     activeMembership ? `/api/members?associationId=${activeMembership.association_id}` : null,
     fetcher,
@@ -22,6 +22,7 @@ export function MembersView() {
       members={data.members}
       invitations={data.invitations}
       associationId={activeMembership.association_id}
+      associationName={activeAssociation?.name ?? ''}
       callerRole={activeMembership.role}
       currentUserId={activeMembership.user_id}
       titles={data.titles}

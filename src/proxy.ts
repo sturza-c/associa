@@ -3,7 +3,13 @@ import { NextResponse, type NextRequest } from 'next/server'
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register')
+  const isAuthRoute =
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/register') ||
+    pathname.startsWith('/forgot-password') ||
+    pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/auth/callback') ||
+    pathname.startsWith('/a/')
 
   // Detect Supabase session cookie (any cookie starting with sb-)
   const hasSession = request.cookies.getAll().some(c => c.name.startsWith('sb-'))
