@@ -9,7 +9,7 @@ import type { ConversationWithDetails } from '@/lib/actions/messages'
 import type { DashboardStats } from '@/lib/actions/dashboard'
 import {
   Users, ArrowRight, MessageSquare, Calendar, Sparkles,
-  CalendarHeart, Inbox, TrendingUp, TrendingDown, Wallet,
+  CalendarHeart, CalendarDays, Inbox, TrendingUp, TrendingDown, Wallet,
   Settings2, GripVertical, Eye, EyeOff, ChevronUp, ChevronDown, X,
   CheckCircle2, Circle, Image, UserPlus, CalendarPlus, Receipt, Globe,
   Rocket, ChevronRight,
@@ -736,88 +736,173 @@ export function DashboardClient({ data }: { data: DashboardData }) {
 
         {/* Hero row — always fixed */}
         <div className="grid grid-cols-5 gap-5">
-          {/* Association identity hero */}
-          <div className="col-span-3 relative overflow-hidden rounded-2xl border border-white/8 bg-gradient-to-br from-white/[0.06] to-white/[0.02] backdrop-blur-md p-7 flex flex-col">
-            <div aria-hidden className="absolute -top-24 -right-24 h-72 w-72 rounded-full blur-3xl opacity-30" style={{ backgroundColor: accent }} />
-            <div className="relative flex flex-col flex-1">
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Votre espace</span>
-                </div>
-                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground tabular-nums">Depuis {foundedYear}</span>
+
+          {/* ── Votre espace ── */}
+          <div className="col-span-3 relative overflow-hidden rounded-2xl border border-white/8 backdrop-blur-md flex flex-col"
+            style={{ background: `linear-gradient(135deg, ${accent}18 0%, ${accent}06 40%, transparent 70%)` }}>
+            {/* Glow */}
+            <div aria-hidden className="pointer-events-none absolute -top-20 -right-20 h-64 w-64 rounded-full blur-3xl opacity-20" style={{ backgroundColor: accent }} />
+
+            {/* Top section */}
+            <div className="relative flex items-start gap-5 p-6 pb-4">
+              <LogoUpload
+                associationId={associationId}
+                associationName={association.name}
+                logoUrl={association.logo_url}
+                canEdit={isPresident}
+                accent={accent}
+              />
+              <div className="min-w-0 flex-1 pt-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5 mb-2">
+                  <Sparkles className="h-3 w-3" /> Votre espace · depuis {foundedYear}
+                </p>
+                <h2 className="font-heading italic font-normal text-4xl leading-[1.05] tracking-tight truncate">{association.name}</h2>
+                {association.description ? (
+                  <p className="text-sm text-muted-foreground mt-2 leading-relaxed line-clamp-2">{association.description}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground/50 mt-2 font-heading italic">Un espace partagé, géré ensemble.</p>
+                )}
               </div>
-              <div className="flex items-start gap-5">
-                <LogoUpload
-                  associationId={associationId}
-                  associationName={association.name}
-                  logoUrl={association.logo_url}
-                  canEdit={isPresident}
-                  accent={accent}
-                />
-                <div className="min-w-0 flex-1">
-                  <h2 className="font-heading italic font-normal text-5xl leading-[1.05] tracking-tight">{association.name}</h2>
-                  {association.description ? (
-                    <p className="text-sm text-muted-foreground mt-3 leading-relaxed max-w-md">{association.description}</p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground/70 mt-3 leading-relaxed font-heading italic">Un espace partagé, géré ensemble — au quotidien.</p>
-                  )}
-                </div>
+            </div>
+
+            {/* Divider */}
+            <div className="h-px mx-6 bg-white/[0.06]" />
+
+            {/* Composition row */}
+            <div className="relative px-6 py-4 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Composition</span>
+                <span className="text-[11px] text-muted-foreground tabular-nums">
+                  <span className="font-semibold text-foreground">{stats.memberCount}</span> {stats.memberCount > 1 ? 'membres' : 'membre'}
+                </span>
               </div>
-              <div className="mt-auto pt-7 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Composition</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    <span className="font-semibold text-foreground">{stats.memberCount}</span> {stats.memberCount > 1 ? 'membres' : 'membre'}
-                  </span>
-                </div>
-                <div className="flex h-2 w-full overflow-hidden rounded-full bg-white/5">
-                  <div className="bg-violet-400 transition-all" style={{ width: `${(roleCounts.president / totalMembers) * 100}%` }} />
-                  <div className="bg-emerald-400 transition-all" style={{ width: `${(roleCounts.treasurer / totalMembers) * 100}%` }} />
-                  <div className="bg-blue-400 transition-all" style={{ width: `${(roleCounts.secretary / totalMembers) * 100}%` }} />
-                  <div className="bg-white/30 transition-all" style={{ width: `${(roleCounts.member / totalMembers) * 100}%` }} />
-                </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
-                  {(['president', 'treasurer', 'secretary', 'member'] as const).map((role, _, arr) => {
-                    const dotColors = { president: 'bg-violet-400', treasurer: 'bg-emerald-400', secretary: 'bg-blue-400', member: 'bg-white/30' }
-                    return (
-                      <span key={role} className="flex items-center gap-1.5">
-                        <span className={cn('h-1.5 w-1.5 rounded-full', dotColors[role])} />
-                        {roleLabel(role, customRoleLabels)} <span className="text-foreground tabular-nums">{roleCounts[role]}</span>
-                      </span>
-                    )
-                  })}
-                </div>
+              <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06] gap-px">
+                {roleCounts.president > 0 && <div className="bg-violet-400 transition-all" style={{ width: `${(roleCounts.president / totalMembers) * 100}%` }} />}
+                {roleCounts.treasurer > 0 && <div className="bg-emerald-400 transition-all" style={{ width: `${(roleCounts.treasurer / totalMembers) * 100}%` }} />}
+                {roleCounts.secretary > 0 && <div className="bg-blue-400 transition-all" style={{ width: `${(roleCounts.secretary / totalMembers) * 100}%` }} />}
+                {roleCounts.member > 0 && <div className="bg-white/25 transition-all" style={{ width: `${(roleCounts.member / totalMembers) * 100}%` }} />}
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                {(['president', 'treasurer', 'secretary', 'member'] as const).map(role => {
+                  const dotColors = { president: 'bg-violet-400', treasurer: 'bg-emerald-400', secretary: 'bg-blue-400', member: 'bg-white/25' }
+                  if (roleCounts[role] === 0) return null
+                  return (
+                    <span key={role} className="flex items-center gap-1.5">
+                      <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', dotColors[role])} />
+                      {roleLabel(role, customRoleLabels)}
+                      <span className="font-semibold text-foreground tabular-nums">{roleCounts[role]}</span>
+                    </span>
+                  )
+                })}
               </div>
             </div>
           </div>
 
-          {/* Stat tiles */}
-          <div className="col-span-2 grid grid-rows-3 gap-4">
-            <StatTile label="Membres" value={stats.memberCount.toString()} hint="actifs" icon={Users} href="/dashboard/members" />
-            <Link href="/dashboard/finances" className="group relative rounded-2xl border border-white/7 bg-white/[0.035] backdrop-blur-md p-4 hover:bg-white/[0.06] transition-colors overflow-hidden">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Trésorerie</p>
-              <p className={cn('text-2xl font-bold tabular-nums leading-none', stats.balance < 0 ? 'text-red-300' : 'text-foreground')}>
-                {stats.balance >= 0 ? '+' : ''}{new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(stats.balance)}
-              </p>
-              <div className="flex items-center gap-3 mt-2">
-                <span className="flex items-center gap-1 text-[11px] text-emerald-400/80"><TrendingUp className="h-3 w-3" />{new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(stats.income)}</span>
-                <span className="flex items-center gap-1 text-[11px] text-red-400/80"><TrendingDown className="h-3 w-3" />{new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(stats.expenses)}</span>
+          {/* ── Stat tiles column ── */}
+          <div className="col-span-2 flex flex-col gap-4">
+
+            {/* Membres */}
+            <Link href="/dashboard/members" className="group relative flex-1 overflow-hidden rounded-2xl border border-white/7 bg-white/[0.03] backdrop-blur-md p-5 hover:bg-white/[0.06] transition-all hover:border-white/12 flex flex-col justify-between">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Membres</p>
+                  <p className="text-4xl font-bold tabular-nums leading-none mt-2">{stats.memberCount}</p>
+                  <p className="text-xs text-muted-foreground mt-1">actifs</p>
+                </div>
+                <div className="h-9 w-9 rounded-xl bg-white/5 flex items-center justify-center ring-1 ring-white/8 group-hover:ring-white/15 transition-all">
+                  <Users className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                </div>
               </div>
-              <Wallet className="absolute bottom-3 right-3 h-8 w-8 text-white/[0.04] group-hover:text-white/[0.07] transition-colors" />
+              <div className="flex items-center gap-1.5 mt-3">
+                {(['president', 'treasurer', 'secretary', 'member'] as const).map(role => {
+                  const colors = { president: 'bg-violet-400', treasurer: 'bg-emerald-400', secretary: 'bg-blue-400', member: 'bg-white/20' }
+                  if (roleCounts[role] === 0) return null
+                  return (
+                    <span key={role} className={cn('h-1.5 rounded-full transition-all', colors[role])}
+                      style={{ width: `${Math.max(8, (roleCounts[role] / totalMembers) * 100)}%` }} />
+                  )
+                })}
+              </div>
             </Link>
-            {upcomingFirst ? (
-              <Link href="/dashboard/events" className="group relative rounded-2xl border border-white/7 bg-white/[0.035] backdrop-blur-md p-4 hover:bg-white/[0.06] transition-colors overflow-hidden">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Prochain événement</p>
-                <p className="text-sm font-semibold truncate leading-snug group-hover:text-foreground transition-colors">{upcomingFirst.name}</p>
-                <p className={cn('text-[11px] mt-1 tabular-nums', daysUntil(upcomingFirst.event_date!) <= 3 ? 'text-amber-400' : 'text-muted-foreground')}>
-                  {daysUntil(upcomingFirst.event_date!) === 0 ? "Aujourd'hui" : daysUntil(upcomingFirst.event_date!) === 1 ? 'Demain' : `Dans ${daysUntil(upcomingFirst.event_date!)} j · ${formatLongDate(upcomingFirst.event_date!)}`}
-                </p>
-                <CalendarHeart className="absolute bottom-3 right-3 h-8 w-8 text-white/[0.04] group-hover:text-white/[0.07] transition-colors" />
-              </Link>
-            ) : (
-              <StatTile label="Événements" value={budgets.length.toString()} hint="planifiés" icon={CalendarHeart} href="/dashboard/events" />
-            )}
+
+            {/* Trésorerie */}
+            <Link href="/dashboard/finances" className="group relative flex-1 overflow-hidden rounded-2xl border border-white/7 bg-white/[0.03] backdrop-blur-md p-5 hover:bg-white/[0.06] transition-all hover:border-white/12 flex flex-col justify-between">
+              <div className="flex items-start justify-between">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Trésorerie</p>
+                  <p className={cn('text-3xl font-bold tabular-nums leading-none mt-2 truncate', stats.balance < 0 ? 'text-red-300' : stats.balance > 0 ? 'text-emerald-300' : 'text-foreground')}>
+                    {stats.balance >= 0 ? '+' : ''}{new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(stats.balance)}
+                  </p>
+                </div>
+                <div className="h-9 w-9 rounded-xl bg-white/5 flex items-center justify-center ring-1 ring-white/8 group-hover:ring-white/15 transition-all shrink-0">
+                  <Wallet className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 mt-3">
+                <span className="flex items-center gap-1.5 text-[11px] text-emerald-400/90 bg-emerald-400/8 rounded-lg px-2 py-1">
+                  <TrendingUp className="h-3 w-3" />
+                  {new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(stats.income)}
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-red-400/90 bg-red-400/8 rounded-lg px-2 py-1">
+                  <TrendingDown className="h-3 w-3" />
+                  {new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(stats.expenses)}
+                </span>
+              </div>
+            </Link>
+
+            {/* Événements */}
+            <Link href="/dashboard/events" className="group relative flex-1 overflow-hidden rounded-2xl border border-white/7 bg-white/[0.03] backdrop-blur-md p-5 hover:bg-white/[0.06] transition-all hover:border-white/12 flex flex-col justify-between">
+              {upcomingFirst ? (
+                <>
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0 flex-1 pr-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Prochain événement</p>
+                      <p className="text-sm font-semibold mt-2 truncate leading-snug">{upcomingFirst.name}</p>
+                    </div>
+                    <div className="h-9 w-9 rounded-xl bg-white/5 flex items-center justify-center ring-1 ring-white/8 group-hover:ring-white/15 transition-all shrink-0">
+                      <CalendarHeart className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <span className={cn(
+                      'inline-flex items-center gap-1.5 text-[11px] font-semibold rounded-lg px-2.5 py-1',
+                      daysUntil(upcomingFirst.event_date!) === 0
+                        ? 'bg-amber-400/15 text-amber-300'
+                        : daysUntil(upcomingFirst.event_date!) <= 3
+                          ? 'bg-amber-400/10 text-amber-400/90'
+                          : 'bg-white/5 text-muted-foreground'
+                    )}>
+                      <CalendarDays className="h-3 w-3" />
+                      {daysUntil(upcomingFirst.event_date!) === 0
+                        ? "Aujourd'hui"
+                        : daysUntil(upcomingFirst.event_date!) === 1
+                          ? 'Demain'
+                          : `Dans ${daysUntil(upcomingFirst.event_date!)} j`}
+                    </span>
+                    <p className="text-[10px] text-muted-foreground/60 mt-1.5 tabular-nums">
+                      {formatLongDate(upcomingFirst.event_date!)}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Événements</p>
+                      <p className="text-4xl font-bold tabular-nums leading-none mt-2">{budgets.length}</p>
+                      <p className="text-xs text-muted-foreground mt-1">planifiés</p>
+                    </div>
+                    <div className="h-9 w-9 rounded-xl bg-white/5 flex items-center justify-center ring-1 ring-white/8 group-hover:ring-white/15 transition-all">
+                      <CalendarHeart className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/60 mt-3">
+                    {budgets.length === 0 ? 'Créez votre premier événement →' : `${budgets.length} au total`}
+                  </p>
+                </>
+              )}
+            </Link>
+
           </div>
         </div>
 
@@ -845,20 +930,3 @@ export function DashboardClient({ data }: { data: DashboardData }) {
   )
 }
 
-function StatTile({ label, value, hint, icon: Icon, href }: { label: string; value: string; hint: string; icon: React.ElementType; href: string }) {
-  return (
-    <Link href={href} className="group relative rounded-2xl border border-white/7 bg-white/[0.035] backdrop-blur-md p-4 hover:bg-white/[0.06] transition-colors flex items-center gap-4">
-      <div className="h-10 w-10 shrink-0 rounded-xl bg-white/5 flex items-center justify-center ring-1 ring-white/8 group-hover:ring-white/15 transition-all">
-        <Icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-        <p className="text-2xl font-bold tabular-nums leading-none mt-1">{value}</p>
-      </div>
-      <div className="text-right shrink-0">
-        <p className="text-[11px] text-muted-foreground">{hint}</p>
-        <ArrowRight className="h-3 w-3 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all inline-block mt-1" />
-      </div>
-    </Link>
-  )
-}

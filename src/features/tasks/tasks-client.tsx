@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { updateTaskStatus, deleteTask } from '@/lib/actions/tasks'
 import { CreateTaskDialog } from './create-task-dialog'
 import type { Task, TaskStatus, Role, MembershipWithProfile } from '@/types/database'
-import { Trash2, CircleDot, CircleCheck, Circle, CalendarDays, CheckSquare, Search } from 'lucide-react'
+import { Trash2, CircleDot, CircleCheck, Circle, CalendarDays, CheckSquare, Search, Users, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const STATUSES: { value: TaskStatus; label: string; icon: React.ElementType }[] = [
@@ -47,34 +47,50 @@ function getInitials(name: string) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
+type Scope = 'personal' | 'team'
+
 interface Props {
   tasks: Task[]
   members: MembershipWithProfile[]
   associationId: string
   callerRole: Role
   currentUserId: string
+  onRefresh: () => void
 }
 
-export function TasksClient({ tasks, members, associationId, callerRole, currentUserId }: Props) {
+export function TasksClient({ tasks, members, associationId, callerRole, currentUserId, onRefresh }: Props) {
+  const [scope, setScope] = useState<Scope>('team')
   const [activeStatus, setActiveStatus] = useState<TaskStatus | 'all'>('all')
   const [query, setQuery] = useState('')
   const [loadingId, setLoadingId] = useState<string | null>(null)
 
+  // Split by scope
+  const personalTasks = useMemo(() =>
+    tasks.filter(t => t.is_personal && (t.created_by === currentUserId || t.assigned_to === currentUserId)),
+    [tasks, currentUserId]
+  )
+  const teamTasks = useMemo(() =>
+    tasks.filter(t => !t.is_personal),
+    [tasks]
+  )
+
+  const scopedTasks = scope === 'personal' ? personalTasks : teamTasks
+
   const counts = useMemo(() => ({
-    all: tasks.length,
-    todo: tasks.filter(t => t.status === 'todo').length,
-    in_progress: tasks.filter(t => t.status === 'in_progress').length,
-    done: tasks.filter(t => t.status === 'done').length,
-  }), [tasks])
+    all: scopedTasks.length,
+    todo: scopedTasks.filter(t => t.status === 'todo').length,
+    in_progress: scopedTasks.filter(t => t.status === 'in_progress').length,
+    done: scopedTasks.filter(t => t.status === 'done').length,
+  }), [scopedTasks])
 
   const filtered = useMemo(() => {
-    return tasks.filter(t => {
+    return scopedTasks.filter(t => {
       if (activeStatus !== 'all' && t.status !== activeStatus) return false
       if (!query) return true
       const q = query.toLowerCase()
       return t.title.toLowerCase().includes(q) || (t.description ?? '').toLowerCase().includes(q)
     })
-  }, [tasks, activeStatus, query])
+  }, [scopedTasks, activeStatus, query])
 
   const canDelete = (task: Task) =>
     task.created_by === currentUserId || ['president', 'secretary'].includes(callerRole)
@@ -84,6 +100,7 @@ export function TasksClient({ tasks, members, associationId, callerRole, current
     setLoadingId(task.id)
     const result = await updateTaskStatus(task.id, status)
     if (result.error) toast.error(result.error)
+    else onRefresh()
     setLoadingId(null)
   }
 
@@ -91,11 +108,11 @@ export function TasksClient({ tasks, members, associationId, callerRole, current
     setLoadingId(task.id)
     const result = await deleteTask(task.id, associationId)
     if (result.error) toast.error(result.error)
-    else toast.success('Tâche supprimée')
+    else { toast.success('Tâche supprimée'); onRefresh() }
     setLoadingId(null)
   }
 
-  const tabs = [
+  const statusTabs = [
     { value: 'all' as const, label: 'Toutes', count: counts.all },
     ...STATUSES.map(s => ({ value: s.value, label: s.label, count: counts[s.value] })),
   ]
@@ -112,10 +129,47 @@ export function TasksClient({ tasks, members, associationId, callerRole, current
             Opérations
           </p>
           <h1 className="text-[28px] font-semibold mt-1 leading-tight tracking-tight">
-            <span className="font-heading italic font-normal text-[32px]">Tâches</span> en cours
+            <span className="font-heading italic font-normal text-[32px]">Tâches</span>
           </h1>
         </div>
-        <CreateTaskDialog associationId={associationId} members={members} />
+        <div className="flex items-center gap-2">
+          {/* Scope toggle */}
+          <div className="flex items-center gap-0.5 rounded-xl border border-white/7 bg-white/[0.035] backdrop-blur-md p-1">
+            <button
+              onClick={() => { setScope('personal'); setActiveStatus('all') }}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
+                scope === 'personal' ? 'bg-white/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <User className="h-3.5 w-3.5" />
+              Personnelles
+              <span className={cn('text-[10px] tabular-nums rounded-md px-1 py-0.5', scope === 'personal' ? 'bg-white/10' : 'bg-white/5')}>
+                {personalTasks.length}
+              </span>
+            </button>
+            <button
+              onClick={() => { setScope('team'); setActiveStatus('all') }}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
+                scope === 'team' ? 'bg-white/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Users className="h-3.5 w-3.5" />
+              Équipe
+              <span className={cn('text-[10px] tabular-nums rounded-md px-1 py-0.5', scope === 'team' ? 'bg-white/10' : 'bg-white/5')}>
+                {teamTasks.length}
+              </span>
+            </button>
+          </div>
+          <CreateTaskDialog
+            associationId={associationId}
+            members={members}
+            currentUserId={currentUserId}
+            defaultPersonal={scope === 'personal'}
+            onCreated={onRefresh}
+          />
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-8 space-y-5">
@@ -123,7 +177,6 @@ export function TasksClient({ tasks, members, associationId, callerRole, current
         {/* Progress hero */}
         {counts.all > 0 && (
           <div className="rounded-2xl border border-white/7 bg-white/[0.035] backdrop-blur-md overflow-hidden">
-            {/* Segmented bar at the very top */}
             <div className="flex h-1 w-full">
               {counts.todo > 0 && (
                 <div className="bg-white/15 transition-all" style={{ width: `${(counts.todo / counts.all) * 100}%` }} />
@@ -137,7 +190,6 @@ export function TasksClient({ tasks, members, associationId, callerRole, current
             </div>
 
             <div className="flex items-stretch divide-x divide-white/5">
-              {/* Big % */}
               <div className="flex flex-col justify-center px-6 py-4 shrink-0 min-w-[110px]">
                 <span className={cn(
                   'text-4xl font-bold tabular-nums tracking-tight leading-none',
@@ -146,11 +198,10 @@ export function TasksClient({ tasks, members, associationId, callerRole, current
                   {progressPct}%
                 </span>
                 <span className="text-[11px] text-muted-foreground mt-1.5 font-heading italic">
-                  {progressPct === 100 ? 'tout terminé ✓' : 'complété'}
+                  {progressPct === 100 ? 'tout terminé ✓' : scope === 'personal' ? 'mes tâches' : 'complété'}
                 </span>
               </div>
 
-              {/* Stats */}
               {[
                 { label: 'À faire', count: counts.todo, color: 'bg-white/20', text: 'text-muted-foreground' },
                 { label: 'En cours', count: counts.in_progress, color: 'bg-blue-400/70', text: 'text-blue-300' },
@@ -177,28 +228,23 @@ export function TasksClient({ tasks, members, associationId, callerRole, current
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Rechercher une tâche..."
+              placeholder={`Rechercher${scope === 'personal' ? ' mes tâches' : ' une tâche'}...`}
               className="w-full rounded-xl border border-white/7 bg-white/[0.035] backdrop-blur-md pl-10 pr-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-white/15 transition-all"
             />
           </div>
 
           <div className="flex items-center gap-1 rounded-xl border border-white/7 bg-white/[0.035] backdrop-blur-md p-1">
-            {tabs.map(tab => (
+            {statusTabs.map(tab => (
               <button
                 key={tab.value}
                 onClick={() => setActiveStatus(tab.value)}
                 className={cn(
                   'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5',
-                  activeStatus === tab.value
-                    ? 'bg-white/10 text-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
+                  activeStatus === tab.value ? 'bg-white/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 {tab.label}
-                <span className={cn(
-                  'text-[10px] tabular-nums rounded-md px-1 py-0.5',
-                  activeStatus === tab.value ? 'bg-white/10' : 'bg-white/5'
-                )}>
+                <span className={cn('text-[10px] tabular-nums rounded-md px-1 py-0.5', activeStatus === tab.value ? 'bg-white/10' : 'bg-white/5')}>
                   {tab.count}
                 </span>
               </button>
@@ -213,8 +259,19 @@ export function TasksClient({ tasks, members, associationId, callerRole, current
               <CheckSquare className="h-5 w-5 text-muted-foreground/50" />
             </div>
             <p className="text-sm text-muted-foreground">
-              {query ? 'Aucune tâche ne correspond' : activeStatus === 'done' ? 'Aucune tâche terminée' : 'Tout est à jour'}
+              {query
+                ? 'Aucune tâche ne correspond'
+                : activeStatus === 'done'
+                  ? 'Aucune tâche terminée'
+                  : scope === 'personal'
+                    ? 'Aucune tâche personnelle'
+                    : 'Tout est à jour'}
             </p>
+            {!query && scope === 'personal' && activeStatus === 'all' && (
+              <p className="text-xs text-muted-foreground/60 mt-1">
+                Créez une tâche personnelle pour vous organiser.
+              </p>
+            )}
           </div>
         ) : (
           <div className="rounded-2xl border border-white/7 bg-white/[0.035] backdrop-blur-md overflow-hidden divide-y divide-white/5">
@@ -272,7 +329,7 @@ export function TasksClient({ tasks, members, associationId, callerRole, current
                       )}>
                         {PRIORITY_LABELS[task.priority]}
                       </span>
-                      {assignee && (
+                      {assignee && scope === 'team' && (
                         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <span className="h-5 w-5 flex items-center justify-center rounded-full bg-white/8 text-[9px] font-semibold ring-1 ring-white/10">
                             {getInitials(assignee)}

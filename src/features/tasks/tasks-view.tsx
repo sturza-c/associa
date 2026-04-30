@@ -9,7 +9,7 @@ const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 export function TasksView() {
   const { activeMembership } = useAssociation()
-  const { data, isLoading } = useSWR(
+  const { data, mutate } = useSWR(
     activeMembership ? `/api/tasks?associationId=${activeMembership.association_id}` : null,
     fetcher,
     {}
@@ -24,6 +24,7 @@ export function TasksView() {
       associationId={activeMembership.association_id}
       callerRole={activeMembership.role}
       currentUserId={activeMembership.user_id}
+      onRefresh={() => mutate()}
     />
   )
 }

@@ -149,6 +149,61 @@ export async function deleteCotisation(cotisationId: string, associationId: stri
   return { success: true }
 }
 
+// ─── Add manual payment (upsert) ─────────────────────────────────────────────
+// Creates or updates a cotisation record for a single member + year.
+
+export async function addManualPayment(
+  associationId: string,
+  membershipId: string,
+  year: number,
+  amountDue: number,
+  amountPaid: number,
+  method: string | null,
+  notes: string | null,
+) {
+  const auth = await assertManager(associationId)
+  if ('error' in auth) return { error: auth.error }
+
+  const admin = createAdminClient()
+
+  // Check if a record already exists
+  const { data: existing } = await admin
+    .from('cotisations')
+    .select('id')
+    .eq('association_id', associationId)
+    .eq('membership_id', membershipId)
+    .eq('year', year)
+    .maybeSingle()
+
+  const payload = {
+    association_id: associationId,
+    membership_id: membershipId,
+    year,
+    amount_due: amountDue,
+    amount_paid: amountPaid,
+    payment_method: method || null,
+    notes: notes?.trim() || null,
+    paid_at: amountPaid > 0 ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString(),
+  }
+
+  let error
+  if (existing?.id) {
+    ;({ error } = await admin.from('cotisations').update(payload).eq('id', existing.id))
+  } else {
+    ;({ error } = await admin.from('cotisations').insert(payload))
+  }
+
+  if (error) {
+    if (error.code === '42P01') return { error: 'Table cotisations manquante — exécute sql/cotisations.sql' }
+    console.error('addManualPayment error:', error.message)
+    return { error: 'Erreur lors de l\'enregistrement' }
+  }
+
+  REVALIDATE()
+  return { success: true }
+}
+
 // ─── Send reminders ───────────────────────────────────────────────────────────
 
 export async function sendCotisationReminders(

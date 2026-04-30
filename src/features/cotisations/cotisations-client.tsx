@@ -8,6 +8,7 @@ import {
   deleteCotisation,
   sendCotisationReminders,
   updateAmountDue,
+  addManualPayment,
 } from '@/lib/actions/cotisations'
 import { exportCotisationsCSV, exportCotisationsPDF } from '@/lib/export-cotisations'
 import {
@@ -268,6 +269,149 @@ function PaymentDialog({
   )
 }
 
+// ─── Manual payment dialog ────────────────────────────────────────────────────
+
+function ManualPaymentDialog({
+  members,
+  associationId,
+  defaultYear,
+  onSuccess,
+}: {
+  members: RawMember[]
+  associationId: string
+  defaultYear: number
+  onSuccess: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [membershipId, setMembershipId] = useState('')
+  const [year, setYear] = useState(defaultYear)
+  const [amountDue, setAmountDue] = useState('20')
+  const [amountPaid, setAmountPaid] = useState('20')
+  const [method, setMethod] = useState<string>('cash')
+  const [notes, setNotes] = useState('')
+  const [, start] = useTransition()
+
+  function submit() {
+    if (!membershipId) { toast.error('Sélectionner un membre'); return }
+    const due = parseFloat(amountDue)
+    const paid = parseFloat(amountPaid)
+    if (isNaN(due) || due < 0) { toast.error('Montant dû invalide'); return }
+    if (isNaN(paid) || paid < 0) { toast.error('Montant payé invalide'); return }
+    start(async () => {
+      const r = await addManualPayment(associationId, membershipId, year, due, paid, method, notes)
+      if (r.error) toast.error(r.error)
+      else { toast.success('Paiement enregistré'); setOpen(false); onSuccess() }
+    })
+  }
+
+  const memberRows = members.map(m => {
+    const profile = Array.isArray(m.user_profiles) ? m.user_profiles[0] : m.user_profiles
+    return { id: m.id, name: profile?.full_name ?? '', email: profile?.email ?? '' }
+  })
+
+  if (!open) return (
+    <button
+      onClick={() => setOpen(true)}
+      className="inline-flex items-center gap-2 rounded-xl border border-border bg-background/60 px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-colors"
+    >
+      <Plus className="h-4 w-4" />
+      Saisie manuelle
+    </button>
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Saisie manuelle</h3>
+          <button onClick={() => setOpen(false)} className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-foreground/8 text-muted-foreground">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Enregistre un paiement pour un membre spécifique. Crée l'enregistrement s'il n'existe pas encore.
+        </p>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Membre</label>
+            <select
+              value={membershipId}
+              onChange={e => setMembershipId(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
+            >
+              <option value="">— Sélectionner —</option>
+              {memberRows.map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.name || m.email}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Année</label>
+            <input
+              type="number"
+              value={year}
+              onChange={e => setYear(parseInt(e.target.value))}
+              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Montant dû (CHF)</label>
+              <input
+                type="number" step="0.01" min="0"
+                value={amountDue}
+                onChange={e => setAmountDue(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Montant payé (CHF)</label>
+              <input
+                type="number" step="0.01" min="0"
+                value={amountPaid}
+                onChange={e => setAmountPaid(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Moyen de paiement</label>
+            <select
+              value={method}
+              onChange={e => setMethod(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
+            >
+              {PAYMENT_METHODS.map(m => (
+                <option key={m} value={m}>{METHOD_LABELS[m]}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Notes (optionnel)</label>
+            <input
+              type="text"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="ex. reçu #12"
+              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
+            />
+          </div>
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button onClick={() => setOpen(false)} className="flex-1 rounded-xl border border-border px-4 py-2 text-sm hover:bg-foreground/5 transition-colors">
+            Annuler
+          </button>
+          <button onClick={submit} className="flex-1 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">
+            Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main client ──────────────────────────────────────────────────────────────
 
 export function CotisationsClient({
@@ -430,6 +574,16 @@ export function CotisationsClient({
               <Send className="h-4 w-4" />
               {sendingReminders ? 'Envoi…' : `Rappel (${unpaidCount})`}
             </button>
+          )}
+
+          {/* Manual entry */}
+          {canManage && (
+            <ManualPaymentDialog
+              members={members}
+              associationId={associationId}
+              defaultYear={activeYear}
+              onSuccess={onRefresh}
+            />
           )}
 
           {/* Init year */}
