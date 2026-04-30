@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useTransition, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
 import { updateMemberRole, deactivateMember } from '@/lib/actions/members'
 import { revokeInvitation, resendInvitation, type PendingInvitation } from '@/lib/actions/invitations'
 import { InviteMemberDialog } from './invite-member-dialog'
@@ -65,6 +64,7 @@ interface Props {
   currentUserId: string
   titles: AssociationTitle[]
   memberTitleMap: Record<string, string[]>
+  onRefresh: () => void
 }
 
 export function MembersClient({
@@ -76,8 +76,8 @@ export function MembersClient({
   currentUserId,
   titles,
   memberTitleMap,
+  onRefresh,
 }: Props) {
-  const router = useRouter()
   const [, startInvTransition] = useTransition()
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
@@ -119,7 +119,7 @@ export function MembersClient({
     setLoading(membershipId)
     const result = await updateMemberRole(membershipId, associationId, role)
     if (result.error) toast.error(result.error)
-    else toast.success('Rôle mis à jour')
+    else { toast.success('Rôle mis à jour'); onRefresh() }
     setLoading(null)
   }
 
@@ -127,7 +127,7 @@ export function MembersClient({
     startInvTransition(async () => {
       const r = await revokeInvitation(invitationId, associationId)
       if (r.error) toast.error(r.error)
-      else { toast.success('Invitation supprimée'); router.refresh() }
+      else { toast.success('Invitation supprimée'); onRefresh() }
     })
   }
 
@@ -135,7 +135,7 @@ export function MembersClient({
     startInvTransition(async () => {
       const r = await resendInvitation(invitationId, associationId)
       if (r.error) toast.error(r.error)
-      else { toast.success('Invitation renvoyée'); router.refresh() }
+      else { toast.success('Invitation renvoyée'); onRefresh() }
     })
   }
 
@@ -149,7 +149,7 @@ export function MembersClient({
     setLoading(membershipId)
     const result = await deactivateMember(membershipId, associationId)
     if (result.error) toast.error(result.error)
-    else toast.success('Membre retiré de l\'association')
+    else { toast.success('Membre retiré de l\'association'); onRefresh() }
     setLoading(null)
   }
 
@@ -300,6 +300,7 @@ export function MembersClient({
               titles={titles}
               members={members}
               memberTitleMap={memberTitleMap}
+              onRefresh={onRefresh}
             />
           )}
           {canInvite && <InviteMemberDialog associationId={associationId} />}

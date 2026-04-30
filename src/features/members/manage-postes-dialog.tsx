@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -50,12 +49,12 @@ interface Props {
   titles: AssociationTitle[]
   members: MembershipWithProfile[]
   memberTitleMap: Record<string, string[]>
+  onRefresh: () => void
 }
 
 type View = 'list' | 'assign'
 
-export function ManagePostesDialog({ associationId, titles, members, memberTitleMap }: Props) {
-  const router = useRouter()
+export function ManagePostesDialog({ associationId, titles, members, memberTitleMap, onRefresh }: Props) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const [view, setView] = useState<View>('list')
@@ -90,7 +89,7 @@ export function ManagePostesDialog({ associationId, titles, members, memberTitle
         setCreating(false)
         setNewName('')
         setNewColor(COLOR_PRESETS[0])
-        router.refresh()
+        onRefresh()
       }
     })
   }
@@ -108,7 +107,7 @@ export function ManagePostesDialog({ associationId, titles, members, memberTitle
         if (activeTitle?.id === id) {
           setActiveTitle(t => t ? { ...t, name: editName.trim(), color: editColor } : t)
         }
-        router.refresh()
+        onRefresh()
       }
     })
   }
@@ -120,7 +119,7 @@ export function ManagePostesDialog({ associationId, titles, members, memberTitle
       else {
         toast.success('Poste supprimé')
         if (activeTitle?.id === id) { setView('list'); setActiveTitle(null) }
-        router.refresh()
+        onRefresh()
       }
     })
   }
@@ -131,7 +130,7 @@ export function ManagePostesDialog({ associationId, titles, members, memberTitle
         ? await unassignTitle(membershipId, titleId, associationId)
         : await assignTitle(membershipId, titleId, associationId)
       if (res.error) toast.error(res.error)
-      else router.refresh()
+      else onRefresh()
     })
   }
 

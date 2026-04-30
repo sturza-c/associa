@@ -9,13 +9,12 @@ const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 export function MembersView() {
   const { activeMembership, activeAssociation } = useAssociation()
-  const { data, isLoading } = useSWR(
+  const { data, mutate } = useSWR(
     activeMembership ? `/api/members?associationId=${activeMembership.association_id}` : null,
     fetcher,
-    { revalidateOnFocus: false }
   )
 
-  if (!activeMembership || isLoading || !data) return <MembersLoading />
+  if (!activeMembership || !data) return <MembersLoading />
 
   return (
     <MembersClient
@@ -27,6 +26,7 @@ export function MembersView() {
       currentUserId={activeMembership.user_id}
       titles={data.titles}
       memberTitleMap={data.memberTitleMap}
+      onRefresh={() => mutate()}
     />
   )
 }

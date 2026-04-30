@@ -12,10 +12,10 @@ export function FinancesView() {
   const { data, isLoading, mutate } = useSWR(
     activeMembership ? `/api/finances?associationId=${activeMembership.association_id}` : null,
     fetcher,
-    { revalidateOnFocus: false }
+    {}
   )
 
-  if (!activeMembership || isLoading || !data) return <FinancesLoading />
+  if (!activeMembership || !data) return <FinancesLoading />
 
   return (
     <FinancesShell

@@ -12,10 +12,10 @@ export function MessagesView() {
   const { data, isLoading } = useSWR(
     activeMembership ? `/api/messages?associationId=${activeMembership.association_id}` : null,
     fetcher,
-    { revalidateOnFocus: false }
+    {}
   )
 
-  if (!activeMembership || isLoading || !data) return <MessagesLoading />
+  if (!activeMembership || !data) return <MessagesLoading />
 
   return (
     <MessagesClient

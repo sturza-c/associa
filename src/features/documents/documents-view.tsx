@@ -12,10 +12,10 @@ export function DocumentsView() {
   const { data, isLoading, mutate } = useSWR(
     activeMembership ? `/api/documents?associationId=${activeMembership.association_id}` : null,
     fetcher,
-    { revalidateOnFocus: false }
+    {}
   )
 
-  if (!activeMembership || isLoading || !data) return <DocumentsLoading />
+  if (!activeMembership || !data) return <DocumentsLoading />
 
   return (
     <DocumentsClient

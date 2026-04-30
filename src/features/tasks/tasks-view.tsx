@@ -12,10 +12,10 @@ export function TasksView() {
   const { data, isLoading } = useSWR(
     activeMembership ? `/api/tasks?associationId=${activeMembership.association_id}` : null,
     fetcher,
-    { revalidateOnFocus: false }
+    {}
   )
 
-  if (!activeMembership || isLoading || !data) return <TasksLoading />
+  if (!activeMembership || !data) return <TasksLoading />
 
   return (
     <TasksClient

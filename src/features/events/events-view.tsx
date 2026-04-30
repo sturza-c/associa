@@ -17,13 +17,12 @@ export function EventsView() {
     createClient().auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null))
   }, [])
 
-  const { data, isLoading, mutate } = useSWR(
+  const { data, mutate } = useSWR(
     activeMembership ? `/api/events?associationId=${activeMembership.association_id}` : null,
     fetcher,
-    { revalidateOnFocus: false }
   )
 
-  if (!activeMembership || isLoading || !data || !currentUserId) return <EventsLoading />
+  if (!activeMembership || !data || !currentUserId) return <EventsLoading />
 
   return (
     <EventsShell

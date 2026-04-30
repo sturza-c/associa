@@ -219,13 +219,13 @@ export async function createTitle(
     .maybeSingle()
   const nextPosition = (maxRow?.position ?? -1) + 1
 
-  const { error } = await admin.from('association_titles').insert({
+  const { data: inserted, error } = await admin.from('association_titles').insert({
     association_id: associationId,
     name: name.slice(0, 60),
     color,
     description: payload.description?.trim() || null,
     position: nextPosition,
-  })
+  }).select().single()
 
   if (error) {
     if (error.code === '42P01' || error.message?.includes('does not exist')) {
@@ -237,7 +237,7 @@ export async function createTitle(
 
   revalidatePath('/dashboard/settings')
   revalidatePath('/dashboard/members')
-  return { success: true }
+  return { success: true, title: inserted }
 }
 
 export async function updateTitle(

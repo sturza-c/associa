@@ -390,15 +390,15 @@ function RoleLabelsSection({
 
 function TitlesSection({
   associationId,
-  titles,
+  titles: initialTitles,
   canEdit,
 }: {
   associationId: string
   titles: AssociationTitle[]
   canEdit: boolean
 }) {
-  const router = useRouter()
   const [pending, startTransition] = useTransition()
+  const [localTitles, setLocalTitles] = useState<AssociationTitle[]>(initialTitles)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState(TITLE_COLOR_PRESETS[0])
@@ -413,10 +413,10 @@ function TitlesSection({
       if (res.error) toast.error(res.error)
       else {
         toast.success('Titre créé')
+        if (res.title) setLocalTitles(ts => [...ts, res.title as AssociationTitle])
         setNewName('')
         setNewColor(TITLE_COLOR_PRESETS[0])
         setCreating(false)
-        router.refresh()
       }
     })
   }
@@ -430,13 +430,15 @@ function TitlesSection({
   function handleEdit() {
     if (!editingId || !editName.trim()) return
     const id = editingId
+    const name = editName
+    const color = editColor
     startTransition(async () => {
-      const res = await updateTitle(id, associationId, { name: editName, color: editColor })
+      const res = await updateTitle(id, associationId, { name, color })
       if (res.error) toast.error(res.error)
       else {
         toast.success('Titre mis à jour')
+        setLocalTitles(ts => ts.map(t => t.id === id ? { ...t, name, color } : t))
         setEditingId(null)
-        router.refresh()
       }
     })
   }
@@ -447,10 +449,13 @@ function TitlesSection({
       if (res.error) toast.error(res.error)
       else {
         toast.success('Titre supprimé')
-        router.refresh()
+        setLocalTitles(ts => ts.filter(t => t.id !== id))
       }
     })
   }
+
+  // Use localTitles alias so template code below doesn't change
+  const titles = localTitles
 
   return (
     <section>
@@ -594,7 +599,7 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
 function MembersSection({
   associationId,
   titles,
-  members,
+  members: initialMembers,
   customRoleLabels,
   canEdit,
 }: {
@@ -605,7 +610,7 @@ function MembersSection({
   canEdit: boolean
 }) {
   const [pending, startTransition] = useTransition()
-  const router = useRouter()
+  const [members, setMembers] = useState<MemberWithTitles[]>(initialMembers)
   const [openMember, setOpenMember] = useState<string | null>(null)
 
   function toggle(membershipId: string, titleId: string, hasTitle: boolean) {
@@ -614,7 +619,18 @@ function MembersSection({
         ? await unassignTitle(membershipId, titleId, associationId)
         : await assignTitle(membershipId, titleId, associationId)
       if (res.error) toast.error(res.error)
-      else router.refresh()
+      else {
+        setMembers(ms => ms.map(m =>
+          m.membership_id === membershipId
+            ? {
+                ...m,
+                title_ids: hasTitle
+                  ? m.title_ids.filter(id => id !== titleId)
+                  : [...m.title_ids, titleId],
+              }
+            : m
+        ))
+      }
     })
   }
 

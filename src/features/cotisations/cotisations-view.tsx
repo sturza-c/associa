@@ -16,10 +16,10 @@ export function CotisationsView() {
       ? `/api/cotisations?associationId=${activeMembership.association_id}${yearOverride ? `&year=${yearOverride}` : ''}`
       : null,
     fetcher,
-    { revalidateOnFocus: false }
+    {}
   )
 
-  if (!activeMembership || isLoading || !data) {
+  if (!activeMembership || !data) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />

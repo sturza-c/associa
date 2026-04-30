@@ -35,15 +35,14 @@ export function CalendarView() {
 
   const { rangeStart, rangeEnd } = getCalendarRange(year, month)
 
-  const { data, isLoading } = useSWR(
+  const { data } = useSWR(
     activeMembership
       ? `/api/calendar?associationId=${activeMembership.association_id}&rangeStart=${rangeStart}&rangeEnd=${rangeEnd}`
       : null,
     fetcher,
-    { revalidateOnFocus: false }
   )
 
-  if (!activeMembership || isLoading || !data) return <CalendarLoading />
+  if (!activeMembership || !data) return <CalendarLoading />
 
   return (
     <CalendarClient
