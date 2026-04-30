@@ -13,15 +13,22 @@ export function ResetForm() {
   const [done, setDone] = useState(false)
   const [errors, setErrors] = useState<{ password?: string; confirm?: string; general?: string }>({})
 
-  // Guard: if Supabase didn't establish a session (e.g. link expired or
-  // user navigated here directly), send them back to forgot-password.
+  // Guard: redirect to forgot-password if there's no session after a brief
+  // wait (gives the Supabase client time to set up the session from the
+  // auth callback before we check).
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getSession().then(({ data: { session } }) => {
+
+    // Give the client 1.5 s to establish the session (cookie write + hydration)
+    // before deciding it's missing. Avoids false-positive redirect on fast loads.
+    const timer = setTimeout(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         router.replace('/forgot-password?error=session_expired')
       }
-    })
+    }, 1500)
+
+    return () => clearTimeout(timer)
   }, [router])
 
   function validate() {

@@ -29,7 +29,9 @@ export function LoginForm() {
     if (errorParam === 'session_expired') {
       toast.error('Le lien de réinitialisation a expiré. Veuillez en demander un nouveau.')
     } else if (errorParam === 'auth_callback_failed') {
-      toast.error('Le lien est invalide ou a déjà été utilisé.')
+      toast.error('Le lien a expiré ou est invalide. Demandez un nouveau lien.')
+    } else if (errorParam === 'missing_code') {
+      toast.error('Lien incomplet. Essayez de cliquer directement depuis votre boîte mail.')
     }
   }, [errorParam])
 
