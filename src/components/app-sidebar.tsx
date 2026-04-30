@@ -47,6 +47,41 @@ function getAssocInitials(name: string) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
+function AssocAvatar({
+  name,
+  logoUrl,
+  accentColor,
+  title,
+  className,
+}: {
+  name: string
+  logoUrl: string | null
+  accentColor: string
+  title?: string
+  className?: string
+}) {
+  if (logoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logoUrl}
+        alt={name}
+        title={title}
+        className={cn('h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-white/10', className)}
+      />
+    )
+  }
+  return (
+    <div
+      className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold', className)}
+      title={title}
+      style={{ backgroundColor: accentColor + '22', color: accentColor }}
+    >
+      {getAssocInitials(name)}
+    </div>
+  )
+}
+
 function UserMenu({ profile, collapsed }: { profile: UserProfile; collapsed: boolean }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -247,21 +282,30 @@ export function AppSidebar({ profile, memberCount }: Props) {
         isExpanded ? 'p-4' : 'p-2'
       )}>
         {!isExpanded ? (
-          <div
-            className="flex h-10 w-10 mx-auto items-center justify-center rounded-xl text-sm font-bold"
-            title={activeAssociation?.name}
-            style={{ backgroundColor: accentColor + '22', color: accentColor }}
-          >
-            {activeAssociation ? getAssocInitials(activeAssociation.name) : '?'}
-          </div>
+          activeAssociation ? (
+            <AssocAvatar
+              name={activeAssociation.name}
+              logoUrl={activeAssociation.logo_url}
+              accentColor={accentColor}
+              title={activeAssociation.name}
+              className="mx-auto"
+            />
+          ) : (
+            <div className="flex h-10 w-10 mx-auto items-center justify-center rounded-xl text-sm font-bold"
+              style={{ backgroundColor: accentColor + '22', color: accentColor }}>?</div>
+          )
         ) : memberships.length > 1 ? (
           <Link href="/select" className="flex items-center gap-3 rounded-xl p-2 hover:bg-foreground/5 transition-colors group">
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
-              style={{ backgroundColor: accentColor + '22', color: accentColor }}
-            >
-              {activeAssociation ? getAssocInitials(activeAssociation.name) : '?'}
-            </div>
+            {activeAssociation ? (
+              <AssocAvatar
+                name={activeAssociation.name}
+                logoUrl={activeAssociation.logo_url}
+                accentColor={accentColor}
+              />
+            ) : (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
+                style={{ backgroundColor: accentColor + '22', color: accentColor }}>?</div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate leading-tight">{activeAssociation?.name ?? '...'}</p>
               {activeAssociation?.description && (
@@ -272,12 +316,16 @@ export function AppSidebar({ profile, memberCount }: Props) {
           </Link>
         ) : (
           <div className="flex items-center gap-3 p-2">
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
-              style={{ backgroundColor: accentColor + '22', color: accentColor }}
-            >
-              {activeAssociation ? getAssocInitials(activeAssociation.name) : '?'}
-            </div>
+            {activeAssociation ? (
+              <AssocAvatar
+                name={activeAssociation.name}
+                logoUrl={activeAssociation.logo_url}
+                accentColor={accentColor}
+              />
+            ) : (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
+                style={{ backgroundColor: accentColor + '22', color: accentColor }}>?</div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate leading-tight">{activeAssociation?.name ?? '...'}</p>
               {activeAssociation?.description && (

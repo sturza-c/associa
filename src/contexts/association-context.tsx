@@ -8,6 +8,8 @@ interface AssociationContextValue {
   activeMembership: AssociationMembership | null
   memberships: MembershipWithAssociation[]
   setActive: (membership: MembershipWithAssociation) => void
+  /** Optimistically patch fields of the active association (e.g. logo_url after upload) */
+  patchActiveAssociation: (patch: Partial<Association>) => void
 }
 
 const AssociationContext = createContext<AssociationContextValue | null>(null)
@@ -42,6 +44,13 @@ export function AssociationProvider({
     setActiveMembership(membership)
   }, [])
 
+  const patchActiveAssociation = useCallback((patch: Partial<Association>) => {
+    setActiveMembership(prev => {
+      if (!prev) return prev
+      return { ...prev, associations: { ...prev.associations, ...patch } }
+    })
+  }, [])
+
   return (
     <AssociationContext.Provider
       value={{
@@ -49,6 +58,7 @@ export function AssociationProvider({
         activeMembership: activeMembership,
         memberships,
         setActive,
+        patchActiveAssociation,
       }}
     >
       {children}

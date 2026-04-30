@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { toast } from 'sonner'
 import { Camera, Loader2 } from 'lucide-react'
 import { uploadAssociationLogo } from '@/lib/actions/association-settings'
+import { useAssociation } from '@/contexts/association-context'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -30,6 +31,7 @@ export function LogoUpload({ associationId, associationName, logoUrl, canEdit, a
   const [pending, startTransition] = useTransition()
   const [optimisticUrl, setOptimisticUrl] = useState<string | null>(logoUrl)
   const [busy, setBusy] = useState(false)
+  const { patchActiveAssociation } = useAssociation()
 
   function handlePick() {
     if (!canEdit || pending || busy) return
@@ -54,7 +56,10 @@ export function LogoUpload({ associationId, associationName, logoUrl, canEdit, a
         toast.error(res.error)
         setOptimisticUrl(logoUrl)
       } else {
-        setOptimisticUrl(res.logo_url ?? null)
+        const newUrl = res.logo_url ?? null
+        setOptimisticUrl(newUrl)
+        // Sync the sidebar + context instantly — no refresh needed
+        patchActiveAssociation({ logo_url: newUrl })
         toast.success('Logo mis à jour')
       }
       setBusy(false)
@@ -65,20 +70,20 @@ export function LogoUpload({ associationId, associationName, logoUrl, canEdit, a
   const hasLogo = !!optimisticUrl
 
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <button
         type="button"
         onClick={handlePick}
         disabled={!canEdit || pending || busy}
         className={cn(
-          'group relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all',
+          'group relative h-28 w-28 overflow-hidden rounded-3xl ring-1 ring-white/10 transition-all',
           canEdit && 'hover:ring-white/30 cursor-pointer',
           !canEdit && 'cursor-default'
         )}
         style={
           hasLogo
             ? undefined
-            : { background: `linear-gradient(135deg, ${accent}33, ${accent}11)` }
+            : { background: `linear-gradient(135deg, ${accent}44, ${accent}18)` }
         }
         aria-label={canEdit ? "Changer le logo de l'association" : 'Logo'}
       >
@@ -87,13 +92,13 @@ export function LogoUpload({ associationId, associationName, logoUrl, canEdit, a
             src={optimisticUrl!}
             alt={associationName}
             fill
-            sizes="64px"
+            sizes="112px"
             className="object-cover"
             unoptimized
           />
         ) : (
           <div
-            className="flex h-full w-full items-center justify-center font-heading italic text-2xl"
+            className="flex h-full w-full items-center justify-center font-heading italic text-4xl"
             style={{ color: accent }}
           >
             {initials}
@@ -106,9 +111,9 @@ export function LogoUpload({ associationId, associationName, logoUrl, canEdit, a
             (busy || pending) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
           )}>
             {busy || pending ? (
-              <Loader2 className="h-4 w-4 text-white animate-spin" />
+              <Loader2 className="h-5 w-5 text-white animate-spin" />
             ) : (
-              <Camera className="h-4 w-4 text-white" />
+              <Camera className="h-5 w-5 text-white" />
             )}
           </div>
         )}
