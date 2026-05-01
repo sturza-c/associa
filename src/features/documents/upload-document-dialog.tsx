@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Upload, File } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { DocumentFolder } from '@/types/database'
 
 const MAX_SIZE = 20 * 1024 * 1024 // 20MB
@@ -21,9 +22,10 @@ const MAX_SIZE = 20 * 1024 * 1024 // 20MB
 interface Props {
   associationId: string
   folders: DocumentFolder[]
+  asCard?: boolean
 }
 
-export function UploadDocumentDialog({ associationId, folders }: Props) {
+export function UploadDocumentDialog({ associationId, folders, asCard }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [file, setFile] = useState<File | null>(null)
@@ -97,10 +99,22 @@ export function UploadDocumentDialog({ associationId, folders }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-        <Upload className="h-4 w-4" />
-        Uploader
-      </DialogTrigger>
+      {asCard ? (
+        <DialogTrigger className="group flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] backdrop-blur-md hover:border-white/20 hover:bg-white/[0.04] transition-all w-full min-h-[220px]">
+          <div className="h-14 w-14 rounded-2xl bg-white/[0.05] flex items-center justify-center ring-1 ring-white/8 group-hover:bg-white/10 group-hover:ring-white/15 transition-all">
+            <Upload className="h-6 w-6 text-muted-foreground/60 group-hover:text-muted-foreground transition-colors" />
+          </div>
+          <div className="text-center px-4">
+            <p className="text-sm font-medium text-muted-foreground/70 group-hover:text-muted-foreground transition-colors">Uploader un document</p>
+            <p className="text-xs text-muted-foreground/40 mt-1">PDF, image, vidéo… jusqu&apos;à 20 Mo</p>
+          </div>
+        </DialogTrigger>
+      ) : (
+        <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+          <Upload className="h-4 w-4" />
+          Uploader
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-xl">
 
         <DialogHeader>

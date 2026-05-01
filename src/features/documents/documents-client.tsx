@@ -227,7 +227,6 @@ export function DocumentsClient({
             <span className="font-heading italic font-normal text-[32px]">Documents</span>
           </h1>
         </div>
-        <UploadDocumentDialog associationId={associationId} folders={folders} />
       </div>
 
       <div className="flex-1 overflow-hidden flex">
@@ -299,38 +298,37 @@ export function DocumentsClient({
               />
             </div>
 
-            {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <FolderOpen className="h-8 w-8 text-muted-foreground/20 mb-4" />
-                <p className="text-sm text-muted-foreground font-heading italic">
-                  {query ? 'Aucun document ne correspond' : 'Aucun document dans ce dossier'}
-                </p>
-                {!query && documents.length === 0 && (
-                  <p className="text-xs text-muted-foreground/60 mt-2">
-                    Glissez un fichier ou utilisez le bouton ci-dessus.
-                  </p>
+            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+              <UploadDocumentDialog associationId={associationId} folders={folders} asCard />
+              {filtered.map((doc) => (
+                <DocumentCard
+                  key={doc.id}
+                  doc={doc}
+                  folder={doc.folder_id ? foldersById[doc.folder_id] : null}
+                  uploader={uploaders[doc.uploaded_by]}
+                  isMine={doc.uploaded_by === currentUserId}
+                  loading={loadingId === doc.id}
+                  canDelete={canDelete(doc)}
+                  canRename={canRename(doc)}
+                  isDragging={draggingDocId === doc.id}
+                  onView={() => handleView(doc)}
+                  onDelete={(e) => handleDelete(doc, e)}
+                  onRename={(name) => handleRename(doc, name)}
+                  onDragStart={() => handleDragStart(doc.id)}
+                  onDragEnd={handleDragEnd}
+                />
+              ))}
+            </div>
+            {filtered.length === 0 && (
+              <div className="flex flex-col items-center pt-6 pb-16 text-center">
+                {query ? (
+                  <>
+                    <FolderOpen className="h-6 w-6 text-muted-foreground/20 mb-3" />
+                    <p className="text-sm text-muted-foreground/60 font-heading italic">Aucun document ne correspond</p>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground/40 font-heading italic">Ce dossier est vide</p>
                 )}
-              </div>
-            ) : (
-              <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-                {filtered.map((doc) => (
-                  <DocumentCard
-                    key={doc.id}
-                    doc={doc}
-                    folder={doc.folder_id ? foldersById[doc.folder_id] : null}
-                    uploader={uploaders[doc.uploaded_by]}
-                    isMine={doc.uploaded_by === currentUserId}
-                    loading={loadingId === doc.id}
-                    canDelete={canDelete(doc)}
-                    canRename={canRename(doc)}
-                    isDragging={draggingDocId === doc.id}
-                    onView={() => handleView(doc)}
-                    onDelete={(e) => handleDelete(doc, e)}
-                    onRename={(name) => handleRename(doc, name)}
-                    onDragStart={() => handleDragStart(doc.id)}
-                    onDragEnd={handleDragEnd}
-                  />
-                ))}
               </div>
             )}
           </div>

@@ -20,10 +20,11 @@ interface Props {
   members: MembershipWithProfile[]
   currentUserId: string
   defaultPersonal?: boolean
+  asCard?: boolean
   onCreated?: () => void
 }
 
-export function CreateTaskDialog({ associationId, members, currentUserId, defaultPersonal = false, onCreated }: Props) {
+export function CreateTaskDialog({ associationId, members, currentUserId, defaultPersonal = false, asCard, onCreated }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isPersonal, setIsPersonal] = useState(defaultPersonal)
@@ -54,10 +55,22 @@ export function CreateTaskDialog({ associationId, members, currentUserId, defaul
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">
-        <Plus className="h-4 w-4" />
-        Nouvelle tâche
-      </DialogTrigger>
+      {asCard ? (
+        <DialogTrigger className="group w-full flex items-center gap-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] backdrop-blur-md px-6 py-5 hover:border-white/20 hover:bg-white/[0.04] transition-all text-left">
+          <div className="h-11 w-11 rounded-xl bg-white/[0.05] flex items-center justify-center ring-1 ring-white/8 group-hover:bg-white/10 group-hover:ring-white/15 shrink-0 transition-all">
+            <Plus className="h-5 w-5 text-muted-foreground/60 group-hover:text-muted-foreground transition-colors" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-medium text-muted-foreground/70 group-hover:text-muted-foreground transition-colors">Nouvelle tâche</p>
+            <p className="text-xs text-muted-foreground/40 mt-0.5">{defaultPersonal ? 'Ajouter une tâche personnelle' : 'Ajouter une tâche à l\'équipe'}</p>
+          </div>
+        </DialogTrigger>
+      ) : (
+        <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">
+          <Plus className="h-4 w-4" />
+          Nouvelle tâche
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="font-heading italic font-normal text-xl">Créer une tâche</DialogTitle>

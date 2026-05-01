@@ -132,9 +132,8 @@ export function TasksClient({ tasks, members, associationId, callerRole, current
             <span className="font-heading italic font-normal text-[32px]">Tâches</span>
           </h1>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Scope toggle */}
-          <div className="flex items-center gap-0.5 rounded-xl border border-white/7 bg-white/[0.035] backdrop-blur-md p-1">
+        {/* Scope toggle */}
+        <div className="flex items-center gap-0.5 rounded-xl border border-white/7 bg-white/[0.035] backdrop-blur-md p-1">
             <button
               onClick={() => { setScope('personal'); setActiveStatus('all') }}
               className={cn(
@@ -162,17 +161,19 @@ export function TasksClient({ tasks, members, associationId, callerRole, current
               </span>
             </button>
           </div>
-          <CreateTaskDialog
-            associationId={associationId}
-            members={members}
-            currentUserId={currentUserId}
-            defaultPersonal={scope === 'personal'}
-            onCreated={onRefresh}
-          />
-        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-8 space-y-5">
+
+        {/* Create card */}
+        <CreateTaskDialog
+          associationId={associationId}
+          members={members}
+          currentUserId={currentUserId}
+          defaultPersonal={scope === 'personal'}
+          asCard
+          onCreated={onRefresh}
+        />
 
         {/* Progress hero */}
         {counts.all > 0 && (
