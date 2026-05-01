@@ -35,7 +35,9 @@ interface RawMember {
 
 interface Cotisation {
   id: string
-  membership_id: string
+  membership_id: string | null
+  external_name: string | null
+  external_email: string | null
   year: number
   amount_due: number
   amount_paid: number
@@ -283,7 +285,10 @@ function ManualPaymentDialog({
   onSuccess: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<'member' | 'external'>('member')
   const [membershipId, setMembershipId] = useState('')
+  const [externalName, setExternalName] = useState('')
+  const [externalEmail, setExternalEmail] = useState('')
   const [year, setYear] = useState(defaultYear)
   const [amountDue, setAmountDue] = useState('20')
   const [amountPaid, setAmountPaid] = useState('20')
@@ -291,16 +296,28 @@ function ManualPaymentDialog({
   const [notes, setNotes] = useState('')
   const [, start] = useTransition()
 
+  function reset() {
+    setMode('member'); setMembershipId(''); setExternalName(''); setExternalEmail('')
+    setYear(defaultYear); setAmountDue('20'); setAmountPaid('20'); setMethod('cash'); setNotes('')
+  }
+
   function submit() {
-    if (!membershipId) { toast.error('Sélectionner un membre'); return }
+    if (mode === 'member' && !membershipId) { toast.error('Sélectionner un membre'); return }
+    if (mode === 'external' && !externalName.trim()) { toast.error('Le nom est requis'); return }
     const due = parseFloat(amountDue)
     const paid = parseFloat(amountPaid)
     if (isNaN(due) || due < 0) { toast.error('Montant dû invalide'); return }
     if (isNaN(paid) || paid < 0) { toast.error('Montant payé invalide'); return }
     start(async () => {
-      const r = await addManualPayment(associationId, membershipId, year, due, paid, method, notes)
+      const r = await addManualPayment(
+        associationId,
+        mode === 'member' ? membershipId : null,
+        mode === 'external' ? externalName.trim() : null,
+        mode === 'external' ? externalEmail.trim() || null : null,
+        year, due, paid, method, notes,
+      )
       if (r.error) toast.error(r.error)
-      else { toast.success('Paiement enregistré'); setOpen(false); onSuccess() }
+      else { toast.success('Paiement enregistré'); setOpen(false); reset(); onSuccess() }
     })
   }
 
@@ -328,25 +345,71 @@ function ManualPaymentDialog({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Enregistre un paiement pour un membre spécifique. Crée l'enregistrement s'il n'existe pas encore.
-        </p>
+
+        {/* Mode toggle */}
+        <div className="flex items-center gap-1 rounded-xl border border-border bg-background/50 p-1">
+          <button
+            type="button"
+            onClick={() => setMode('member')}
+            className={cn(
+              'flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors',
+              mode === 'member' ? 'bg-foreground/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Membre Associa
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('external')}
+            className={cn(
+              'flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors',
+              mode === 'external' ? 'bg-foreground/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Personne externe
+          </button>
+        </div>
+
         <div className="space-y-3">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground">Membre</label>
-            <select
-              value={membershipId}
-              onChange={e => setMembershipId(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
-            >
-              <option value="">— Sélectionner —</option>
-              {memberRows.map(m => (
-                <option key={m.id} value={m.id}>
-                  {m.name || m.email}
-                </option>
-              ))}
-            </select>
-          </div>
+          {mode === 'member' ? (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Membre</label>
+              <select
+                value={membershipId}
+                onChange={e => setMembershipId(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
+              >
+                <option value="">— Sélectionner —</option>
+                {memberRows.map(m => (
+                  <option key={m.id} value={m.id}>{m.name || m.email}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Nom <span className="text-muted-foreground/60 font-normal">(requis)</span></label>
+                <input
+                  type="text"
+                  value={externalName}
+                  onChange={e => setExternalName(e.target.value)}
+                  placeholder="Ex: Jean Dupont"
+                  className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Email <span className="text-muted-foreground/60 font-normal">(optionnel)</span></label>
+                <input
+                  type="email"
+                  value={externalEmail}
+                  onChange={e => setExternalEmail(e.target.value)}
+                  placeholder="jean@exemple.ch"
+                  className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
+                />
+              </div>
+            </>
+          )}
+
           <div>
             <label className="text-xs font-medium text-muted-foreground">Année</label>
             <input
@@ -427,7 +490,9 @@ export function CotisationsClient({
   const [, start] = useTransition()
 
   const cotMap = useMemo(() =>
-    Object.fromEntries(cotisations.map(c => [c.membership_id, c])),
+    Object.fromEntries(
+      cotisations.filter(c => c.membership_id).map(c => [c.membership_id!, c])
+    ),
     [cotisations]
   )
 
@@ -447,10 +512,20 @@ export function CotisationsClient({
     [members, cotMap]
   )
 
+  // External cotisations (no membership_id)
+  const externalRows = useMemo(() =>
+    cotisations.filter(c => !c.membership_id),
+    [cotisations]
+  )
+
   const totalDue = rows.reduce((s, r) => s + (r.cotisation ? Number(r.cotisation.amount_due) : 0), 0)
+    + externalRows.reduce((s, c) => s + Number(c.amount_due), 0)
   const totalPaid = rows.reduce((s, r) => s + (r.cotisation ? Number(r.cotisation.amount_paid) : 0), 0)
+    + externalRows.reduce((s, c) => s + Number(c.amount_paid), 0)
   const paidCount = rows.filter(r => r.cotisation && Number(r.cotisation.amount_paid) >= Number(r.cotisation.amount_due) && Number(r.cotisation.amount_due) > 0).length
+    + externalRows.filter(c => Number(c.amount_paid) >= Number(c.amount_due) && Number(c.amount_due) > 0).length
   const unpaidCount = rows.filter(r => r.cotisation && Number(r.cotisation.amount_paid) < Number(r.cotisation.amount_due)).length
+    + externalRows.filter(c => Number(c.amount_paid) < Number(c.amount_due)).length
 
   const hasCotisations = cotisations.length > 0
 
@@ -737,6 +812,70 @@ export function CotisationsClient({
                             <Trash2 className="h-3 w-3" />
                           </button>
                         </>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* External cotisations */}
+              {externalRows.map(cot => {
+                const due = Number(cot.amount_due)
+                const paid = Number(cot.amount_paid)
+                const isPaid = paid >= due && due > 0
+                return (
+                  <div key={cot.id} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-6 py-3.5 items-center hover:bg-foreground/[0.02] transition-colors">
+                    {/* External member */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-8 w-8 shrink-0 flex items-center justify-center rounded-full bg-foreground/10 text-xs font-semibold ring-1 ring-border">
+                        {getInitials(cot.external_name, cot.external_email ?? '?')}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium truncate">{cot.external_name}</p>
+                          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground bg-foreground/8 rounded-full px-1.5 py-0.5">Externe</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">{cot.external_email ?? '—'}</p>
+                      </div>
+                    </div>
+
+                    {/* Amount due */}
+                    <div className="w-24 text-right">
+                      <span className="text-sm tabular-nums">{fmt(due)}</span>
+                    </div>
+
+                    {/* Amount paid */}
+                    <div className="w-24 text-right">
+                      <span className={cn('text-sm tabular-nums font-medium', isPaid ? 'text-emerald-400' : '')}>
+                        {fmt(paid)}
+                      </span>
+                      {cot.paid_at && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{fmtDate(cot.paid_at)}</p>
+                      )}
+                    </div>
+
+                    {/* Status */}
+                    <div className="w-20 flex justify-center">
+                      {due === 0
+                        ? <span className="text-[10px] text-muted-foreground italic">Gratuit</span>
+                        : isPaid
+                          ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-400/10 ring-1 ring-emerald-400/25 rounded-full px-2 py-0.5"><Check className="h-2.5 w-2.5" /> Payé</span>
+                          : paid > 0
+                            ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-400/10 ring-1 ring-amber-400/25 rounded-full px-2 py-0.5">Partiel</span>
+                            : <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-400 bg-red-400/10 ring-1 ring-red-400/25 rounded-full px-2 py-0.5">Non payé</span>
+                      }
+                    </div>
+
+                    {/* Actions */}
+                    <div className="w-20 flex items-center justify-center gap-1">
+                      {canManage && (
+                        <button
+                          onClick={() => handleDelete(cot.id)}
+                          title="Supprimer"
+                          className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
                       )}
                     </div>
                   </div>

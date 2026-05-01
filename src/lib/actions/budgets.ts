@@ -24,8 +24,8 @@ async function assertTreasurer(associationId: string) {
     .eq('is_active', true)
     .single()
 
-  if (!['president', 'treasurer'].includes(membership?.role ?? '')) {
-    return { error: 'Seul le président ou le trésorier peut gérer les budgets' as const }
+  if (!['president', 'treasurer', 'secretary'].includes(membership?.role ?? '')) {
+    return { error: 'Seul le président, le trésorier ou le secrétaire peut gérer les budgets' as const }
   }
   return { user }
 }
@@ -95,7 +95,7 @@ export async function createEventBudget(formData: FormData, associationId: strin
     if (error.code === '42P01' || error.code === 'PGRST205' || error.message?.includes('does not exist')) {
       return { error: 'Table event_budgets manquante — exécute sql/event_budgets.sql dans Supabase' }
     }
-    return { error: 'Erreur lors de la création' }
+    return { error: `Erreur lors de la création : ${error.message}` }
   }
 
   revalidatePath('/dashboard/finances')

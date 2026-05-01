@@ -284,30 +284,8 @@ function EventsOverview({ events, upcoming, canManage, onSelect, onCreateClick }
   onSelect: (id: string) => void
   onCreateClick: () => void
 }) {
-  const totalParticipants = events.reduce((s, ev) =>
-    s + (ev.participants?.filter(p => p.response === 'going').length ?? 0), 0)
-
   return (
     <div className="px-8 py-6 space-y-8">
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Événements</p>
-          <p className="text-3xl font-bold tabular-nums">{events.length}</p>
-          <p className="text-[11px] text-muted-foreground/60 mt-1">au total</p>
-        </div>
-        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">À venir</p>
-          <p className="text-3xl font-bold tabular-nums text-blue-300">{upcoming.length}</p>
-          <p className="text-[11px] text-muted-foreground/60 mt-1">planifiés</p>
-        </div>
-        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Participants</p>
-          <p className="text-3xl font-bold tabular-nums text-emerald-300">{totalParticipants}</p>
-          <p className="text-[11px] text-muted-foreground/60 mt-1">confirmés (tous events)</p>
-        </div>
-      </div>
-
       {/* Upcoming events */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">

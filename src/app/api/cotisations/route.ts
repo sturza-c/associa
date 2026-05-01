@@ -48,7 +48,7 @@ export async function GET(req: Request) {
   if (years.length > 0 || yearParam) {
     const { data, error } = await admin
       .from('cotisations')
-      .select('id, membership_id, year, amount_due, amount_paid, paid_at, payment_method, notes, updated_at')
+      .select('id, membership_id, external_name, external_email, year, amount_due, amount_paid, paid_at, payment_method, notes, updated_at')
       .eq('association_id', associationId)
       .eq('year', year)
 

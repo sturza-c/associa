@@ -150,11 +150,15 @@ export async function deleteCotisation(cotisationId: string, associationId: stri
 }
 
 // ─── Add manual payment (upsert) ─────────────────────────────────────────────
-// Creates or updates a cotisation record for a single member + year.
+// Creates or updates a cotisation record for a member or an external person.
+// Pass membershipId for Associa members, or externalName (+ optional email)
+// for people without an account.
 
 export async function addManualPayment(
   associationId: string,
-  membershipId: string,
+  membershipId: string | null,
+  externalName: string | null,
+  externalEmail: string | null,
   year: number,
   amountDue: number,
   amountPaid: number,
@@ -164,20 +168,27 @@ export async function addManualPayment(
   const auth = await assertManager(associationId)
   if ('error' in auth) return { error: auth.error }
 
+  if (!membershipId && !externalName?.trim()) {
+    return { error: 'Sélectionner un membre ou saisir un nom externe' }
+  }
+
   const admin = createAdminClient()
 
-  // Check if a record already exists
-  const { data: existing } = await admin
-    .from('cotisations')
-    .select('id')
-    .eq('association_id', associationId)
-    .eq('membership_id', membershipId)
-    .eq('year', year)
-    .maybeSingle()
+  // Check if a record already exists for this member + year
+  let existingId: string | null = null
+  if (membershipId) {
+    const { data } = await admin
+      .from('cotisations')
+      .select('id')
+      .eq('association_id', associationId)
+      .eq('membership_id', membershipId)
+      .eq('year', year)
+      .maybeSingle()
+    existingId = data?.id ?? null
+  }
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     association_id: associationId,
-    membership_id: membershipId,
     year,
     amount_due: amountDue,
     amount_paid: amountPaid,
@@ -187,9 +198,16 @@ export async function addManualPayment(
     updated_at: new Date().toISOString(),
   }
 
+  if (membershipId) {
+    payload.membership_id = membershipId
+  } else {
+    payload.external_name = externalName!.trim()
+    payload.external_email = externalEmail?.trim() || null
+  }
+
   let error
-  if (existing?.id) {
-    ;({ error } = await admin.from('cotisations').update(payload).eq('id', existing.id))
+  if (existingId) {
+    ;({ error } = await admin.from('cotisations').update(payload).eq('id', existingId))
   } else {
     ;({ error } = await admin.from('cotisations').insert(payload))
   }
