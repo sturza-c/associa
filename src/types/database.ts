@@ -65,8 +65,23 @@ export interface Task {
   priority: TaskPriority
   due_date: string | null
   is_personal: boolean
+  group_id: string | null
   created_at: string
   updated_at: string
+}
+
+export interface TaskGroup {
+  id: string
+  association_id: string
+  name: string
+  color: string
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface TaskGroupWithMembers extends TaskGroup {
+  membership_ids: string[]
 }
 
 export interface Document {

@@ -42,7 +42,7 @@ export function GrainOverlay() {
       aria-hidden
       className="pointer-events-none fixed inset-0 z-20"
       style={{
-        opacity: 0.11,
+        opacity: 0.032,
         backgroundRepeat: 'repeat',
         backgroundSize: '192px 192px', // 1:1 — each noise pixel = 1 CSS pixel
       }}

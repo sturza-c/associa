@@ -32,6 +32,7 @@ export async function createTask(formData: FormData, associationId: string) {
   const priority = (formData.get('priority') as TaskPriority) || 'medium'
   const due_date = formData.get('due_date') as string
   const is_personal = formData.get('is_personal') === 'true'
+  const group_id = (formData.get('group_id') as string) || null
 
   if (!title?.trim()) return { error: 'Le titre est requis' }
 
@@ -45,6 +46,7 @@ export async function createTask(formData: FormData, associationId: string) {
     priority,
     due_date: due_date || null,
     is_personal,
+    group_id,
     status: 'todo',
   })
 

@@ -20,19 +20,21 @@ interface Props {
   members: MembershipWithProfile[]
   currentUserId: string
   defaultPersonal?: boolean
+  defaultGroupId?: string
+  groupName?: string
   asCard?: boolean
   onCreated?: () => void
 }
 
-export function CreateTaskDialog({ associationId, members, currentUserId, defaultPersonal = false, asCard, onCreated }: Props) {
+export function CreateTaskDialog({ associationId, members, currentUserId, defaultPersonal = false, defaultGroupId, groupName, asCard, onCreated }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [isPersonal, setIsPersonal] = useState(defaultPersonal)
+  const [isPersonal, setIsPersonal] = useState(defaultGroupId ? false : defaultPersonal)
 
   // Sync with parent scope when dialog opens
   useEffect(() => {
-    if (open) setIsPersonal(defaultPersonal)
-  }, [open, defaultPersonal])
+    if (open) setIsPersonal(defaultGroupId ? false : defaultPersonal)
+  }, [open, defaultPersonal, defaultGroupId])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -73,39 +75,53 @@ export function CreateTaskDialog({ associationId, members, currentUserId, defaul
       )}
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle className="font-heading italic font-normal text-xl">Créer une tâche</DialogTitle>
+          <DialogTitle className="font-heading italic font-normal text-xl flex items-center gap-2">
+            Créer une tâche
+            {groupName && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-normal not-italic px-2 py-1 rounded-lg bg-white/8 text-muted-foreground">
+                <Users className="h-3 w-3" />
+                {groupName}
+              </span>
+            )}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Hidden group_id — always submitted */}
+          <input type="hidden" name="group_id" value={defaultGroupId ?? ''} />
 
-          {/* Scope toggle */}
-          <div className="flex items-center gap-1 rounded-xl border border-border bg-background/50 p-1 w-fit">
-            <button
-              type="button"
-              onClick={() => setIsPersonal(false)}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
-                !isPersonal ? 'bg-foreground/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
+          {/* Scope toggle — hidden when group is fixed */}
+          {!defaultGroupId && (
+            <>
+              <div className="flex items-center gap-1 rounded-xl border border-border bg-background/50 p-1 w-fit">
+                <button
+                  type="button"
+                  onClick={() => setIsPersonal(false)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
+                    !isPersonal ? 'bg-foreground/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  Équipe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPersonal(true)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
+                    isPersonal ? 'bg-foreground/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <User className="h-3.5 w-3.5" />
+                  Personnelle
+                </button>
+              </div>
+              {isPersonal && (
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Visible uniquement par vous. Idéal pour vos notes et rappels personnels.
+                </p>
               )}
-            >
-              <Users className="h-3.5 w-3.5" />
-              Équipe
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsPersonal(true)}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
-                isPersonal ? 'bg-foreground/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <User className="h-3.5 w-3.5" />
-              Personnelle
-            </button>
-          </div>
-          {isPersonal && (
-            <p className="text-xs text-muted-foreground -mt-2">
-              Visible uniquement par vous. Idéal pour vos notes et rappels personnels.
-            </p>
+            </>
           )}
 
           <div className="space-y-1.5">

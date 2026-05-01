@@ -16,8 +16,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           left: '-15%',
           width: '70vw',
           height: '70vw',
-          background: 'radial-gradient(circle, oklch(0.48 0.24 285 / 52%) 0%, transparent 60%)',
-          filter: 'blur(40px)',
+          background: 'radial-gradient(circle, oklch(0.48 0.24 285 / 14%) 0%, transparent 60%)',
+          filter: 'blur(60px)',
           willChange: 'transform',
           animation: 'drift-a 18s ease-in-out infinite',
         }}
@@ -31,8 +31,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           right: '-15%',
           width: '60vw',
           height: '60vw',
-          background: 'radial-gradient(circle, oklch(0.40 0.20 240 / 46%) 0%, transparent 60%)',
-          filter: 'blur(50px)',
+          background: 'radial-gradient(circle, oklch(0.40 0.20 240 / 11%) 0%, transparent 60%)',
+          filter: 'blur(70px)',
           willChange: 'transform',
           animation: 'drift-b 22s ease-in-out infinite',
         }}
@@ -46,8 +46,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           left: '20%',
           width: '45vw',
           height: '45vw',
-          background: 'radial-gradient(circle, oklch(0.38 0.16 200 / 28%) 0%, transparent 65%)',
-          filter: 'blur(70px)',
+          background: 'radial-gradient(circle, oklch(0.38 0.16 200 / 7%) 0%, transparent 65%)',
+          filter: 'blur(90px)',
           willChange: 'transform',
           animation: 'drift-c 28s ease-in-out infinite',
         }}
@@ -61,8 +61,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           right: '2%',
           width: '35vw',
           height: '35vw',
-          background: 'radial-gradient(circle, oklch(0.42 0.18 340 / 20%) 0%, transparent 65%)',
-          filter: 'blur(60px)',
+          background: 'radial-gradient(circle, oklch(0.42 0.18 340 / 6%) 0%, transparent 65%)',
+          filter: 'blur(80px)',
           willChange: 'transform',
           animation: 'drift-d 32s ease-in-out infinite',
         }}
@@ -73,7 +73,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         aria-hidden
         className="pointer-events-none fixed inset-0"
         style={{
-          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.018) 1px, transparent 1px)',
           backgroundSize: '36px 36px',
         }}
       />
@@ -88,14 +88,14 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         style={{
           top: '38%',
           height: '1px',
-          background: 'linear-gradient(90deg, transparent 0%, oklch(1 0 0 / 2%) 15%, oklch(0.72 0.14 285 / 14%) 50%, oklch(1 0 0 / 2%) 85%, transparent 100%)',
+          background: 'linear-gradient(90deg, transparent 0%, oklch(1 0 0 / 1%) 15%, oklch(0.72 0.14 285 / 4%) 50%, oklch(1 0 0 / 1%) 85%, transparent 100%)',
         }}
       />
       <div
         aria-hidden
         className="pointer-events-none fixed inset-0"
         style={{
-          background: 'linear-gradient(128deg, transparent 32%, oklch(0.60 0.12 280 / 5%) 50%, transparent 68%)',
+          background: 'linear-gradient(128deg, transparent 32%, oklch(0.60 0.12 280 / 2%) 50%, transparent 68%)',
         }}
       />
 
@@ -104,13 +104,13 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         aria-hidden
         className="pointer-events-none fixed inset-0"
         style={{
-          background: 'radial-gradient(ellipse 70% 70% at 50% 45%, transparent 30%, #01020a 100%)',
+          background: 'radial-gradient(ellipse 55% 60% at 50% 45%, transparent 10%, #01020a 75%)',
         }}
       />
       <div
         aria-hidden
         className="pointer-events-none fixed inset-0"
-        style={{ boxShadow: 'inset 0 0 140px 70px rgba(0,0,0,0.65)' }}
+        style={{ boxShadow: 'inset 0 0 200px 120px rgba(0,0,0,0.92)' }}
       />
 
       {/* ── CSS animations ── */}
