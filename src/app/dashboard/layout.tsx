@@ -57,7 +57,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <SWRProvider>
-      <AssociationProvider memberships={memberships}>
+      <AssociationProvider memberships={memberships} defaultAssociationId={activeMembership?.association_id}>
         <div className="flex h-screen overflow-hidden bg-background">
           <AppSidebar profile={profile} memberCount={memberCount} />
           <main className="flex-1 overflow-y-auto">

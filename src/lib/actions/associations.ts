@@ -1,11 +1,14 @@
 'use server'
 
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import type { MembershipWithAssociation } from '@/types/database'
 
-export async function getUserMemberships(): Promise<MembershipWithAssociation[]> {
+// cache() deduplicates within a single React render pass —
+// layout.tsx + page.tsx both call this, but only one DB query fires.
+export const getUserMemberships = cache(async (): Promise<MembershipWithAssociation[]> => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
@@ -22,7 +25,7 @@ export async function getUserMemberships(): Promise<MembershipWithAssociation[]>
     return []
   }
   return data as MembershipWithAssociation[]
-}
+})
 
 export async function createAssociation(formData: FormData) {
   const supabase = await createClient()

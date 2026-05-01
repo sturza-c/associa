@@ -1,21 +1,17 @@
 'use client'
 
 import useSWR from 'swr'
-import { useSearchParams } from 'next/navigation'
-import { useAssociation } from '@/contexts/association-context'
 import { CalendarClient, ymd, getMonday, type ViewType } from './calendar-client'
-import CalendarLoading from '@/app/dashboard/calendar/loading'
+import type { Role } from '@/types/database'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
-// ─── Range helpers ────────────────────────────────────────────────────────────
-
 function monthGridRange(anchor: Date) {
-  const firstOfMonth = new Date(anchor.getFullYear(), anchor.getMonth(), 1)
-  const startOffset  = (firstOfMonth.getDay() + 6) % 7
-  const gridStart    = new Date(anchor.getFullYear(), anchor.getMonth(), 1 - startOffset)
-  const gridEnd      = new Date(gridStart); gridEnd.setDate(gridEnd.getDate() + 41)
-  return { rangeStart: ymd(gridStart), rangeEnd: ymd(gridEnd) }
+  const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1)
+  const offset = (first.getDay() + 6) % 7
+  const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1 - offset)
+  const end = new Date(start); end.setDate(end.getDate() + 41)
+  return { rangeStart: ymd(start), rangeEnd: ymd(end) }
 }
 
 function weekRange(anchor: Date) {
@@ -29,57 +25,35 @@ function agendaRange(anchor: Date) {
   return { rangeStart: ymd(anchor), rangeEnd: ymd(end) }
 }
 
-// ─── View ─────────────────────────────────────────────────────────────────────
+interface Props {
+  view: ViewType
+  anchor: string          // YYYY-MM-DD
+  associationId: string
+  callerRole: Role
+  initialData: { items: unknown[]; token: string | null }
+}
 
-export function CalendarView() {
-  const { activeMembership } = useAssociation()
-  const searchParams = useSearchParams()
+export function CalendarView({ view, anchor, associationId, callerRole, initialData }: Props) {
+  const anchorDate = new Date(anchor + 'T00:00:00')
 
-  // ── Parse URL params ──────────────────────────────────────────
-  const rawV = searchParams.get('v')
-  const view: ViewType = rawV === 'week' || rawV === 'agenda' ? rawV : 'month'
-
-  // Support ?d=YYYY-MM-DD (new) and legacy ?m=YYYY-MM
-  const today = new Date()
-  let anchor: Date
-
-  const rawD = searchParams.get('d')
-  if (rawD && /^\d{4}-\d{2}-\d{2}$/.test(rawD)) {
-    const parsed = new Date(rawD + 'T00:00:00')
-    anchor = isNaN(parsed.getTime()) ? today : parsed
-  } else {
-    const rawM = searchParams.get('m')
-    if (rawM && /^\d{4}-\d{2}$/.test(rawM)) {
-      const [y, mo] = rawM.split('-').map(Number)
-      anchor = new Date(y, mo - 1, 1)
-    } else {
-      anchor = today
-    }
-  }
-
-  // ── Date range for API ────────────────────────────────────────
   const { rangeStart, rangeEnd } =
-    view === 'week'  ? weekRange(anchor)
-    : view === 'agenda' ? agendaRange(anchor)
-    : monthGridRange(anchor)
+    view === 'week'   ? weekRange(anchorDate)
+    : view === 'agenda' ? agendaRange(anchorDate)
+    : monthGridRange(anchorDate)
 
-  // ── Fetch ─────────────────────────────────────────────────────
   const { data } = useSWR(
-    activeMembership
-      ? `/api/calendar?associationId=${activeMembership.association_id}&rangeStart=${rangeStart}&rangeEnd=${rangeEnd}`
-      : null,
+    `/api/calendar?associationId=${associationId}&rangeStart=${rangeStart}&rangeEnd=${rangeEnd}`,
     fetcher,
+    { fallbackData: initialData },
   )
-
-  if (!activeMembership || !data) return <CalendarLoading />
 
   return (
     <CalendarClient
       view={view}
-      anchor={ymd(anchor)}
+      anchor={anchor}
       items={data.items}
-      associationId={activeMembership.association_id}
-      callerRole={activeMembership.role}
+      associationId={associationId}
+      callerRole={callerRole}
       calendarToken={data.token}
     />
   )

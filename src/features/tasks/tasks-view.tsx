@@ -1,29 +1,32 @@
 'use client'
 
 import useSWR from 'swr'
-import { useAssociation } from '@/contexts/association-context'
 import { TasksClient } from './tasks-client'
-import TasksLoading from '@/app/dashboard/tasks/loading'
+import type { Role } from '@/types/database'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
-export function TasksView() {
-  const { activeMembership } = useAssociation()
-  const { data, mutate } = useSWR(
-    activeMembership ? `/api/tasks?associationId=${activeMembership.association_id}` : null,
-    fetcher,
-    {}
-  )
+interface Props {
+  associationId: string
+  callerRole: Role
+  currentUserId: string
+  initialData: Record<string, unknown>
+}
 
-  if (!activeMembership || !data) return <TasksLoading />
+export function TasksView({ associationId, callerRole, currentUserId, initialData }: Props) {
+  const { data, mutate } = useSWR(
+    `/api/tasks?associationId=${associationId}`,
+    fetcher,
+    { fallbackData: initialData },
+  )
 
   return (
     <TasksClient
       tasks={data.tasks}
       members={data.members}
-      associationId={activeMembership.association_id}
-      callerRole={activeMembership.role}
-      currentUserId={activeMembership.user_id}
+      associationId={associationId}
+      callerRole={callerRole}
+      currentUserId={currentUserId}
       onRefresh={() => mutate()}
     />
   )

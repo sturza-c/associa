@@ -1,35 +1,31 @@
 'use client'
 
 import useSWR from 'swr'
-import { useAssociation } from '@/contexts/association-context'
 import { EventsShell } from './events-shell'
-import EventsLoading from '@/app/dashboard/events/loading'
-import { createClient } from '@/lib/supabase/client'
-import { useEffect, useState } from 'react'
+import type { Role } from '@/types/database'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
-export function EventsView() {
-  const { activeMembership } = useAssociation()
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+interface Props {
+  associationId: string
+  callerRole: Role
+  currentUserId: string
+  initialData: Record<string, unknown>
+}
 
-  useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null))
-  }, [])
-
+export function EventsView({ associationId, callerRole, currentUserId, initialData }: Props) {
   const { data, mutate } = useSWR(
-    activeMembership ? `/api/events?associationId=${activeMembership.association_id}` : null,
+    `/api/events?associationId=${associationId}`,
     fetcher,
+    { fallbackData: initialData },
   )
-
-  if (!activeMembership || !data || !currentUserId) return <EventsLoading />
 
   return (
     <EventsShell
       events={data.events ?? []}
       members={data.members ?? []}
-      associationId={activeMembership.association_id}
-      callerRole={activeMembership.role}
+      associationId={associationId}
+      callerRole={callerRole}
       currentUserId={currentUserId}
       migrationNeeded={data.migrationNeeded ?? false}
       onRefresh={() => mutate()}

@@ -561,7 +561,7 @@ function MessagesWidget({ conversations, userId }: { conversations: Conversation
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function DashboardClient({ data }: { data: DashboardData }) {
+export function DashboardClient({ data, onRefresh: _onRefresh }: { data: DashboardData; onRefresh?: () => void }) {
   const {
     firstName, greeting, today, isPresident,
     association, stats, roleCounts, tasks, budgets, conversations,

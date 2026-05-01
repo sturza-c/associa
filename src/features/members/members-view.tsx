@@ -1,30 +1,34 @@
 'use client'
 
 import useSWR from 'swr'
-import { useAssociation } from '@/contexts/association-context'
 import { MembersClient } from './members-client'
-import MembersLoading from '@/app/dashboard/members/loading'
+import type { AssociationTitle, Role } from '@/types/database'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
-export function MembersView() {
-  const { activeMembership, activeAssociation } = useAssociation()
-  const { data, mutate } = useSWR(
-    activeMembership ? `/api/members?associationId=${activeMembership.association_id}` : null,
-    fetcher,
-  )
+interface Props {
+  associationId: string
+  callerRole: Role
+  currentUserId: string
+  initialData: Record<string, unknown>
+}
 
-  if (!activeMembership || !data) return <MembersLoading />
+export function MembersView({ associationId, callerRole, currentUserId, initialData }: Props) {
+  const { data, mutate } = useSWR(
+    `/api/members?associationId=${associationId}`,
+    fetcher,
+    { fallbackData: initialData },
+  )
 
   return (
     <MembersClient
       members={data.members}
       invitations={data.invitations}
-      associationId={activeMembership.association_id}
-      associationName={activeAssociation?.name ?? ''}
-      callerRole={activeMembership.role}
-      currentUserId={activeMembership.user_id}
-      titles={data.titles}
+      associationId={associationId}
+      associationName={''}
+      callerRole={callerRole}
+      currentUserId={currentUserId}
+      titles={data.titles as AssociationTitle[]}
       memberTitleMap={data.memberTitleMap}
       onRefresh={() => mutate()}
     />

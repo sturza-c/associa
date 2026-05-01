@@ -1,29 +1,32 @@
 'use client'
 
 import useSWR from 'swr'
-import { useAssociation } from '@/contexts/association-context'
 import { MessagesClient } from './messages-client'
-import MessagesLoading from '@/app/dashboard/messages/loading'
+import type { Role } from '@/types/database'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
-export function MessagesView() {
-  const { activeMembership } = useAssociation()
-  const { data, isLoading } = useSWR(
-    activeMembership ? `/api/messages?associationId=${activeMembership.association_id}` : null,
-    fetcher,
-    {}
-  )
+interface Props {
+  associationId: string
+  callerRole: Role
+  currentUserId: string
+  initialData: Record<string, unknown>
+}
 
-  if (!activeMembership || !data) return <MessagesLoading />
+export function MessagesView({ associationId, callerRole, currentUserId, initialData }: Props) {
+  const { data } = useSWR(
+    `/api/messages?associationId=${associationId}`,
+    fetcher,
+    { fallbackData: initialData },
+  )
 
   return (
     <MessagesClient
       conversations={data.conversations}
       members={data.members}
-      associationId={activeMembership.association_id}
-      currentUserId={activeMembership.user_id}
-      callerRole={activeMembership.role}
+      associationId={associationId}
+      currentUserId={currentUserId}
+      callerRole={callerRole}
     />
   )
 }

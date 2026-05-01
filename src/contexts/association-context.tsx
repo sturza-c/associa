@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback } from 'react'
 import type { Association, AssociationMembership, MembershipWithAssociation } from '@/types/database'
 
 interface AssociationContextValue {
@@ -14,33 +14,32 @@ interface AssociationContextValue {
 
 const AssociationContext = createContext<AssociationContextValue | null>(null)
 
-const STORAGE_KEY = 'associa_active_id'
-
 export function AssociationProvider({
   children,
   memberships,
+  defaultAssociationId,
 }: {
   children: React.ReactNode
   memberships: MembershipWithAssociation[]
+  /** Server-computed active association ID — eliminates the useEffect waterfall */
+  defaultAssociationId?: string
 }) {
-  const [activeMembership, setActiveMembership] = useState<MembershipWithAssociation | null>(null)
-
-  useEffect(() => {
-    if (memberships.length === 0) return
-
-    const stored = localStorage.getItem(STORAGE_KEY)
-    const found = stored
-      ? memberships.find(m => m.association_id === stored)
-      : null
-
-    const active = found ?? memberships[0]
-    document.cookie = `associa_active_id=${active.association_id}; path=/; max-age=31536000; samesite=lax`
-    setActiveMembership(active)
-  }, [memberships])
+  // Initialise synchronously from the server-provided ID.
+  // No useEffect, no localStorage read on mount → context is non-null on the very first render.
+  const [activeMembership, setActiveMembership] = useState<MembershipWithAssociation | null>(
+    () => {
+      if (memberships.length === 0) return null
+      if (defaultAssociationId) {
+        return memberships.find(m => m.association_id === defaultAssociationId) ?? memberships[0]
+      }
+      return memberships[0]
+    }
+  )
 
   const setActive = useCallback((membership: MembershipWithAssociation) => {
-    localStorage.setItem(STORAGE_KEY, membership.association_id)
+    // Persist choice so the server reads the same association on next navigation
     document.cookie = `associa_active_id=${membership.association_id}; path=/; max-age=31536000; samesite=lax`
+    try { localStorage.setItem('associa_active_id', membership.association_id) } catch {}
     setActiveMembership(membership)
   }, [])
 

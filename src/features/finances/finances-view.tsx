@@ -3,27 +3,32 @@
 import useSWR from 'swr'
 import { useAssociation } from '@/contexts/association-context'
 import { FinancesShell } from './finances-shell'
-import FinancesLoading from '@/app/dashboard/finances/loading'
+import type { Role } from '@/types/database'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
-export function FinancesView() {
-  const { activeMembership, activeAssociation } = useAssociation()
-  const { data, isLoading, mutate } = useSWR(
-    activeMembership ? `/api/finances?associationId=${activeMembership.association_id}` : null,
-    fetcher,
-    {}
-  )
+interface Props {
+  associationId: string
+  callerRole: Role
+  initialData: Record<string, unknown>
+}
 
-  if (!activeMembership || !data) return <FinancesLoading />
+export function FinancesView({ associationId, callerRole, initialData }: Props) {
+  const { activeAssociation } = useAssociation()
+
+  const { data, mutate } = useSWR(
+    `/api/finances?associationId=${associationId}`,
+    fetcher,
+    { fallbackData: initialData },
+  )
 
   return (
     <FinancesShell
       finances={data.finances}
       budgets={data.budgets}
       categories={data.categories}
-      associationId={activeMembership.association_id}
-      callerRole={activeMembership.role}
+      associationId={associationId}
+      callerRole={callerRole}
       associationName={activeAssociation?.name ?? ''}
       onRefresh={() => mutate()}
     />
