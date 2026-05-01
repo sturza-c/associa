@@ -11,14 +11,33 @@ interface Props {
 }
 
 export function DashboardView({ initialData }: Props) {
-  const { activeMembership } = useAssociation()
-  // Include associationId in the SWR key so switching association triggers a refetch
+  const { activeMembership, activeAssociation } = useAssociation()
   const associationId = activeMembership?.association_id ?? (initialData.associationId as string)
+  const initialId = initialData.associationId as string
+
+  // Only use SSR fallback when we're still on the same association that was
+  // server-rendered. For any other association we'd show stale logo / data
+  // from the wrong association until the fetch resolves.
   const { data, mutate } = useSWR(
     `/api/dashboard?associationId=${associationId}`,
     fetcher,
-    { fallbackData: initialData },
+    { fallbackData: associationId === initialId ? initialData : undefined },
   )
 
-  return <DashboardClient data={data} onRefresh={() => mutate()} />
+  // While the new association's data is loading, patch in the correct logo
+  // from the context (which switches synchronously) to avoid showing the
+  // previous association's photo.
+  const patchedData = data
+    ? {
+        ...data,
+        association: {
+          ...(data.association as Record<string, unknown> ?? {}),
+          logo_url: activeAssociation?.logo_url
+            ?? (data.association as Record<string, unknown>)?.logo_url
+            ?? null,
+        },
+      }
+    : undefined
+
+  return <DashboardClient data={patchedData} onRefresh={() => mutate()} />
 }
