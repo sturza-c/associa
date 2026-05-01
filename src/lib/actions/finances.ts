@@ -33,8 +33,8 @@ export async function createFinanceEntry(formData: FormData, associationId: stri
     .eq('is_active', true)
     .single()
 
-  if (!['president', 'treasurer'].includes(membership?.role ?? '')) {
-    return { error: 'Seul le président ou le trésorier peut gérer les finances' }
+  if (!['president', 'treasurer', 'secretary'].includes(membership?.role ?? '')) {
+    return { error: 'Seul le président, le trésorier ou le secrétaire peut gérer les finances' }
   }
 
   const type = formData.get('type') as FinanceType

@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { Plus } from 'lucide-react'
 
-export function CreateBudgetDialog({ associationId }: { associationId: string }) {
+export function CreateBudgetDialog({ associationId, onSuccess }: { associationId: string; onSuccess?: () => void }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -31,6 +31,7 @@ export function CreateBudgetDialog({ associationId }: { associationId: string })
     } else {
       toast.success('Budget créé')
       setOpen(false)
+      onSuccess?.()
     }
     setLoading(false)
   }

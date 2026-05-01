@@ -20,7 +20,7 @@ async function getCallerRole(associationId: string): Promise<Role | null> {
 }
 
 function canManage(role: Role | null) {
-  return role === 'president' || role === 'treasurer'
+  return role === 'president' || role === 'treasurer' || role === 'secretary'
 }
 
 export async function getFinanceCategories(associationId: string): Promise<FinanceCategory[]> {

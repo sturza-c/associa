@@ -89,7 +89,7 @@ export function FinancesShell({
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [addDialogCategoryId, setAddDialogCategoryId] = useState<string | null>(null)
 
-  const canManage = ['president', 'treasurer'].includes(callerRole)
+  const canManage = ['president', 'treasurer', 'secretary'].includes(callerRole)
 
   const activeBudgetId = typeof active === 'object' && active.type === 'budget' ? active.id : null
   const activeCategoryId = typeof active === 'object' && active.type === 'category' ? active.id : null
@@ -311,7 +311,7 @@ export function FinancesShell({
             <div>
               <div className="flex items-center justify-between px-3 pb-2">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Budgets</p>
-                {canManage && <CreateBudgetDialog associationId={associationId} />}
+                {canManage && <CreateBudgetDialog associationId={associationId} onSuccess={onRefresh} />}
               </div>
               <nav className="space-y-0.5">
                 {budgets.length === 0 ? (

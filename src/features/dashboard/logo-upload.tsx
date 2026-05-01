@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useRef, useState, useTransition, useEffect } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import { Camera, Loader2 } from 'lucide-react'
@@ -30,6 +30,9 @@ export function LogoUpload({ associationId, associationName, logoUrl, canEdit, a
   const inputRef = useRef<HTMLInputElement>(null)
   const [pending, startTransition] = useTransition()
   const [optimisticUrl, setOptimisticUrl] = useState<string | null>(logoUrl)
+
+  // Sync when the association changes (prop comes from SWR refetch or navigation)
+  useEffect(() => { setOptimisticUrl(logoUrl) }, [logoUrl])
   const [busy, setBusy] = useState(false)
   const { patchActiveAssociation } = useAssociation()
 
