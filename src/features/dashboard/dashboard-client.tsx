@@ -406,7 +406,15 @@ function TasksWidget({ tasks, userId }: { tasks: Task[]; userId: string }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate group-hover:text-foreground transition-colors">{task.title}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                  <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span className={cn(
+                      'rounded-md px-1.5 py-0.5 text-[10px] font-semibold ring-1',
+                      task.is_personal
+                        ? 'bg-violet-400/10 text-violet-300 ring-violet-400/20'
+                        : 'bg-blue-400/10 text-blue-300 ring-blue-400/20'
+                    )}>
+                      {task.is_personal ? 'Personnelle' : 'Équipe'}
+                    </span>
                     <span>{STATUS_LABELS[task.status]}</span>
                     {task.due_date && (
                       <>
@@ -860,8 +868,8 @@ export function DashboardClient({ data, onRefresh: _onRefresh }: { data: Dashboa
                 <>
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Événements</p>
-                    <p className="text-3xl font-bold tabular-nums leading-none mt-1.5">{budgets.length}</p>
-                    <p className="text-[11px] text-muted-foreground/60 mt-1.5">{budgets.length === 0 ? 'Créer →' : 'planifiés'}</p>
+                    <p className="text-sm font-medium text-muted-foreground/70 mt-2">Aucun à venir</p>
+                    <p className="text-[11px] text-primary/70 mt-1">Planifier →</p>
                   </div>
                   <div className="h-9 w-9 rounded-xl bg-white/5 flex items-center justify-center ring-1 ring-white/8 group-hover:ring-white/15 transition-all shrink-0">
                     <CalendarHeart className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />

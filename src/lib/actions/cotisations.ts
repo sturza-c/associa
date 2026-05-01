@@ -5,7 +5,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { Resend } from 'resend'
 
-const REVALIDATE = () => revalidatePath('/dashboard/cotisations')
+const REVALIDATE = () => {
+  revalidatePath('/dashboard/cotisations')
+  revalidatePath('/dashboard/finances')
+}
 
 async function assertManager(associationId: string) {
   const supabase = await createClient()
@@ -206,6 +209,7 @@ export async function addManualPayment(
   }
 
   let error
+  const isNew = !existingId
   if (existingId) {
     ;({ error } = await admin.from('cotisations').update(payload).eq('id', existingId))
   } else {
@@ -216,6 +220,34 @@ export async function addManualPayment(
     if (error.code === '42P01') return { error: 'Table cotisations manquante — exécute sql/cotisations.sql' }
     console.error('addManualPayment error:', error.message)
     return { error: 'Erreur lors de l\'enregistrement' }
+  }
+
+  // ── Auto-create a finance entry for new paid cotisations ──────────────────
+  if (isNew && amountPaid > 0) {
+    let memberLabel = 'Cotisation'
+    if (externalName) {
+      memberLabel = `Cotisation ${year} — ${externalName}`
+    } else if (membershipId) {
+      const { data: mem } = await admin
+        .from('association_memberships')
+        .select('user_profiles(full_name, email)')
+        .eq('id', membershipId)
+        .maybeSingle()
+      const profile = Array.isArray(mem?.user_profiles) ? mem.user_profiles[0] : mem?.user_profiles
+      const name = profile?.full_name || profile?.email || null
+      memberLabel = name ? `Cotisation ${year} — ${name}` : `Cotisation ${year}`
+    }
+
+    await admin.from('finances').insert({
+      association_id: associationId,
+      created_by: auth.user.id,
+      type: 'income',
+      label: memberLabel,
+      amount: amountPaid,
+      description: notes?.trim() || null,
+      date: new Date().toISOString().split('T')[0],
+      category_id: null,
+    })
   }
 
   REVALIDATE()

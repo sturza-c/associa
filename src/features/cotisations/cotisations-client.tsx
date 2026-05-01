@@ -285,7 +285,7 @@ function ManualPaymentDialog({
   onSuccess: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const [mode, setMode] = useState<'member' | 'external'>('member')
+  const [mode, setMode] = useState<'member' | 'external'>('external')
   const [membershipId, setMembershipId] = useState('')
   const [externalName, setExternalName] = useState('')
   const [externalEmail, setExternalEmail] = useState('')
@@ -350,16 +350,6 @@ function ManualPaymentDialog({
         <div className="flex items-center gap-1 rounded-xl border border-border bg-background/50 p-1">
           <button
             type="button"
-            onClick={() => setMode('member')}
-            className={cn(
-              'flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors',
-              mode === 'member' ? 'bg-foreground/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            Membre Associa
-          </button>
-          <button
-            type="button"
             onClick={() => setMode('external')}
             className={cn(
               'flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors',
@@ -367,6 +357,16 @@ function ManualPaymentDialog({
             )}
           >
             Personne externe
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('member')}
+            className={cn(
+              'flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors',
+              mode === 'member' ? 'bg-foreground/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Membre Associa
           </button>
         </div>
 
@@ -651,21 +651,21 @@ export function CotisationsClient({
             </button>
           )}
 
+          {/* Init year */}
+          {canManage && (
+            <InitYearDialog
+              associationId={associationId}
+              existingYears={years}
+              onSuccess={onRefresh}
+            />
+          )}
+
           {/* Manual entry */}
           {canManage && (
             <ManualPaymentDialog
               members={members}
               associationId={associationId}
               defaultYear={activeYear}
-              onSuccess={onRefresh}
-            />
-          )}
-
-          {/* Init year */}
-          {canManage && (
-            <InitYearDialog
-              associationId={associationId}
-              existingYears={years}
               onSuccess={onRefresh}
             />
           )}

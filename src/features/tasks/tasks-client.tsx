@@ -60,7 +60,7 @@ interface Props {
 
 export function TasksClient({ tasks, members, associationId, callerRole, currentUserId, onRefresh }: Props) {
   const [scope, setScope] = useState<Scope>('team')
-  const [activeStatus, setActiveStatus] = useState<TaskStatus | 'all'>('all')
+  const [activeStatus, setActiveStatus] = useState<TaskStatus | 'all'>('todo')
   const [query, setQuery] = useState('')
   const [loadingId, setLoadingId] = useState<string | null>(null)
 
@@ -135,7 +135,7 @@ export function TasksClient({ tasks, members, associationId, callerRole, current
         {/* Scope toggle */}
         <div className="flex items-center gap-0.5 rounded-xl border border-white/7 bg-white/[0.035] backdrop-blur-md p-1">
             <button
-              onClick={() => { setScope('personal'); setActiveStatus('all') }}
+              onClick={() => { setScope('personal'); setActiveStatus('todo') }}
               className={cn(
                 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
                 scope === 'personal' ? 'bg-white/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
@@ -148,7 +148,7 @@ export function TasksClient({ tasks, members, associationId, callerRole, current
               </span>
             </button>
             <button
-              onClick={() => { setScope('team'); setActiveStatus('all') }}
+              onClick={() => { setScope('team'); setActiveStatus('todo') }}
               className={cn(
                 'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
                 scope === 'team' ? 'bg-white/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
