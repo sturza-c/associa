@@ -82,6 +82,47 @@ export async function initCotisationYear(
   return { success: true, created: toInsert.length }
 }
 
+// ─── Finance sync helper ──────────────────────────────────────────────────────
+// Creates a finance income entry for a paid cotisation.
+
+async function syncFinanceEntry(
+  admin: ReturnType<typeof createAdminClient>,
+  associationId: string,
+  createdBy: string,
+  year: number,
+  amountPaid: number,
+  membershipId: string | null,
+  externalName: string | null,
+  notes: string | null,
+) {
+  let label = `Cotisation ${year}`
+  if (externalName) {
+    label = `Cotisation ${year} — ${externalName}`
+  } else if (membershipId) {
+    const { data: mem } = await admin
+      .from('association_memberships')
+      .select('user_profiles(full_name, email)')
+      .eq('id', membershipId)
+      .maybeSingle()
+    const profile = Array.isArray(mem?.user_profiles) ? mem.user_profiles[0] : mem?.user_profiles
+    const name = (profile as { full_name?: string; email?: string } | null)?.full_name
+      || (profile as { full_name?: string; email?: string } | null)?.email
+      || null
+    if (name) label = `Cotisation ${year} — ${name}`
+  }
+
+  await admin.from('finances').insert({
+    association_id: associationId,
+    created_by: createdBy,
+    type: 'income',
+    label,
+    amount: amountPaid,
+    description: notes?.trim() || null,
+    date: new Date().toISOString().split('T')[0],
+    category_id: null,
+  })
+}
+
 // ─── Record payment ───────────────────────────────────────────────────────────
 
 export async function recordPayment(
@@ -95,6 +136,15 @@ export async function recordPayment(
   if ('error' in auth) return { error: auth.error }
 
   const admin = createAdminClient()
+
+  // Fetch existing row so we can detect 0 → paid transition and get label info
+  const { data: existing } = await admin
+    .from('cotisations')
+    .select('amount_paid, year, membership_id, external_name')
+    .eq('id', cotisationId)
+    .eq('association_id', associationId)
+    .maybeSingle()
+
   const { error } = await admin
     .from('cotisations')
     .update({
@@ -108,6 +158,18 @@ export async function recordPayment(
     .eq('association_id', associationId)
 
   if (error) return { error: 'Erreur lors de la mise à jour' }
+
+  // Sync finances only on the first payment (0 → paid)
+  if (existing && Number(existing.amount_paid) === 0 && amountPaid > 0) {
+    await syncFinanceEntry(
+      admin, associationId, auth.user.id,
+      existing.year, amountPaid,
+      existing.membership_id ?? null,
+      existing.external_name ?? null,
+      notes,
+    )
+  }
+
   REVALIDATE()
   return { success: true }
 }
@@ -179,15 +241,17 @@ export async function addManualPayment(
 
   // Check if a record already exists for this member + year
   let existingId: string | null = null
+  let existingAmountPaid = 0
   if (membershipId) {
     const { data } = await admin
       .from('cotisations')
-      .select('id')
+      .select('id, amount_paid')
       .eq('association_id', associationId)
       .eq('membership_id', membershipId)
       .eq('year', year)
       .maybeSingle()
     existingId = data?.id ?? null
+    existingAmountPaid = Number(data?.amount_paid ?? 0)
   }
 
   const payload: Record<string, unknown> = {
@@ -222,32 +286,15 @@ export async function addManualPayment(
     return { error: 'Erreur lors de l\'enregistrement' }
   }
 
-  // ── Auto-create a finance entry for new paid cotisations ──────────────────
-  if (isNew && amountPaid > 0) {
-    let memberLabel = 'Cotisation'
-    if (externalName) {
-      memberLabel = `Cotisation ${year} — ${externalName}`
-    } else if (membershipId) {
-      const { data: mem } = await admin
-        .from('association_memberships')
-        .select('user_profiles(full_name, email)')
-        .eq('id', membershipId)
-        .maybeSingle()
-      const profile = Array.isArray(mem?.user_profiles) ? mem.user_profiles[0] : mem?.user_profiles
-      const name = profile?.full_name || profile?.email || null
-      memberLabel = name ? `Cotisation ${year} — ${name}` : `Cotisation ${year}`
-    }
-
-    await admin.from('finances').insert({
-      association_id: associationId,
-      created_by: auth.user.id,
-      type: 'income',
-      label: memberLabel,
-      amount: amountPaid,
-      description: notes?.trim() || null,
-      date: new Date().toISOString().split('T')[0],
-      category_id: null,
-    })
+  // ── Auto-create a finance entry: new paid record OR update from unpaid → paid ─
+  const wasUnpaid = isNew || existingAmountPaid === 0
+  if (wasUnpaid && amountPaid > 0) {
+    await syncFinanceEntry(
+      admin, associationId, auth.user.id,
+      year, amountPaid,
+      membershipId, externalName ?? null,
+      notes,
+    )
   }
 
   REVALIDATE()
