@@ -24,6 +24,7 @@ import {
   Sun,
   Moon,
   BadgePercent,
+  NotebookPen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -35,6 +36,7 @@ const PILOTAGE_ITEMS = [
 
 const OPERATIONS_ITEMS = [
   { href: '/dashboard/tasks', label: 'Tâches', icon: CheckSquare },
+  { href: '/dashboard/notes', label: 'Notes', icon: NotebookPen },
   { href: '/dashboard/events', label: 'Événements', icon: CalendarDays },
   { href: '/dashboard/calendar', label: 'Agenda', icon: Calendar },
   { href: '/dashboard/documents', label: 'Documents', icon: FileText },

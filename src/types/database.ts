@@ -251,3 +251,24 @@ export interface MembershipWithProfile extends AssociationMembership {
 export interface MembershipWithAssociation extends AssociationMembership {
   associations: Association
 }
+
+export interface NoteFolder {
+  id: string
+  association_id: string
+  created_by: string
+  name: string
+  color: string
+  position: number
+  created_at: string
+}
+
+export interface Note {
+  id: string
+  association_id: string
+  folder_id: string | null
+  created_by: string
+  title: string
+  content: string
+  updated_at: string
+  created_at: string
+}
