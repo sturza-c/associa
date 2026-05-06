@@ -74,7 +74,7 @@ const PRIORITY_LABELS: Record<string, string> = {
 const PRIORITY_COLORS: Record<string, string> = {
   high: 'text-red-400 bg-red-400/10 ring-red-400/20',
   medium: 'text-amber-400 bg-amber-400/10 ring-amber-400/20',
-  low: 'text-muted-foreground bg-white/5 ring-white/10',
+  low: 'text-muted-foreground bg-muted ring-border',
 }
 const STATUS_LABELS: Record<string, string> = {
   todo: 'À faire', in_progress: 'En cours', done: 'Terminé',
@@ -350,6 +350,7 @@ function CustomizePanel({
 
 // ─── Widget renderers ─────────────────────────────────────────────────────────
 
+
 function TasksWidget({ tasks, userId }: { tasks: Task[]; userId: string }) {
   const myOpenTasks = useMemo(() =>
     tasks
@@ -365,69 +366,68 @@ function TasksWidget({ tasks, userId }: { tasks: Task[]; userId: string }) {
   const overdueCount = myOpenTasks.filter(t => t.due_date && daysUntil(t.due_date) < 0).length
 
   return (
-    <div className="rounded-2xl border border-white/7 bg-white/[0.035] backdrop-blur-md overflow-hidden flex flex-col">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/6">
+    <div className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
         <div className="flex items-center gap-2.5">
-          <Inbox className="h-4 w-4 text-muted-foreground" />
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-500/10">
+            <Inbox className="h-3.5 w-3.5 text-violet-500" />
+          </div>
           <h2 className="text-sm font-semibold">
             <span className="font-heading italic font-normal text-muted-foreground">Pour</span> vous
           </h2>
           {myOpenTasks.length > 0 && (
-            <span className="text-[10px] bg-white/8 rounded-md px-1.5 py-0.5 font-semibold tabular-nums">
+            <span className="text-[10px] bg-muted rounded-md px-1.5 py-0.5 font-semibold tabular-nums text-muted-foreground">
               {myOpenTasks.length}
             </span>
           )}
           {overdueCount > 0 && (
-            <span className="text-[10px] bg-red-400/15 text-red-300 ring-1 ring-red-400/25 rounded-md px-1.5 py-0.5 font-semibold tabular-nums">
+            <span className="text-[10px] bg-red-500/10 text-red-500 ring-1 ring-red-500/20 rounded-md px-1.5 py-0.5 font-semibold tabular-nums">
               {overdueCount} en retard
             </span>
           )}
         </div>
-        <Link href="/dashboard/tasks" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+        <Link href="/dashboard/tasks" className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
           Voir tout <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
       {preview.length === 0 ? (
         <div className="flex flex-col items-center justify-center flex-1 py-14 text-center px-6">
-          <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
+          <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center mb-4">
             <Inbox className="h-5 w-5 text-muted-foreground/50" />
           </div>
-          <p className="text-sm text-muted-foreground">Rien ne vous attend</p>
-          <p className="text-xs text-muted-foreground/60 mt-1 font-heading italic">Profitez du calme.</p>
+          <p className="text-sm font-medium text-foreground">Rien ne vous attend</p>
+          <p className="text-xs text-muted-foreground mt-1 font-heading italic">Profitez du calme.</p>
         </div>
       ) : (
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-border">
           {preview.map(task => {
             const due = task.due_date ? daysUntil(task.due_date) : null
             const overdue = due !== null && due < 0
             const soon = due !== null && due >= 0 && due <= 3
             return (
-              <Link key={task.id} href="/dashboard/tasks" className="group flex items-start gap-3 px-6 py-3.5 hover:bg-white/4 transition-colors">
-                <div className={cn('mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1', PRIORITY_COLORS[task.priority])}>
+              <Link key={task.id} href="/dashboard/tasks" className="group flex items-center gap-3 px-5 py-3.5 hover:bg-muted/40 transition-colors">
+                <div className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1', PRIORITY_COLORS[task.priority])}>
                   {PRIORITY_LABELS[task.priority]}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate group-hover:text-foreground transition-colors">{task.title}</p>
+                  <p className="text-sm font-medium truncate">{task.title}</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
                     <span className={cn(
                       'rounded-md px-1.5 py-0.5 text-[10px] font-semibold ring-1',
                       task.is_personal
-                        ? 'bg-violet-400/10 text-violet-300 ring-violet-400/20'
-                        : 'bg-blue-400/10 text-blue-300 ring-blue-400/20'
+                        ? 'bg-violet-500/10 text-violet-500 ring-violet-500/20'
+                        : 'bg-blue-500/10 text-blue-500 ring-blue-500/20'
                     )}>
                       {task.is_personal ? 'Personnelle' : 'Équipe'}
                     </span>
-                    <span>{STATUS_LABELS[task.status]}</span>
                     {task.due_date && (
-                      <>
-                        <span className="text-muted-foreground/40">·</span>
-                        <span className={cn(overdue && 'text-red-400 font-semibold', soon && !overdue && 'text-amber-400 font-semibold')}>
-                          {overdue ? `En retard de ${-due!}j` : due === 0 ? "Aujourd'hui" : due === 1 ? 'Demain' : formatDate(task.due_date)}
-                        </span>
-                      </>
+                      <span className={cn('font-medium', overdue && 'text-red-500', soon && !overdue && 'text-amber-500')}>
+                        {overdue ? `−${-due!}j` : due === 0 ? "Auj." : due === 1 ? 'Demain' : formatDate(task.due_date)}
+                      </span>
                     )}
                   </p>
                 </div>
+                <Circle className="h-3.5 w-3.5 text-border shrink-0 group-hover:text-muted-foreground transition-colors" />
               </Link>
             )
           })}
@@ -447,49 +447,58 @@ function EventsWidget({ budgets }: { budgets: EventBudgetWithLines[] }) {
   )
 
   return (
-    <div className="rounded-2xl border border-white/7 bg-white/[0.035] backdrop-blur-md overflow-hidden flex flex-col">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/6">
+    <div className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
         <div className="flex items-center gap-2.5">
-          <CalendarHeart className="h-4 w-4 text-muted-foreground" />
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-rose-500/10">
+            <CalendarHeart className="h-3.5 w-3.5 text-rose-500" />
+          </div>
           <h2 className="text-sm font-semibold">
             <span className="font-heading italic font-normal text-muted-foreground">Prochains</span> événements
           </h2>
         </div>
-        <Link href="/dashboard/events" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+        <Link href="/dashboard/events" className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
           Voir tout <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
       {upcoming.length === 0 ? (
         <div className="flex flex-col items-center justify-center flex-1 py-14 text-center px-6">
-          <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
+          <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center mb-4">
             <CalendarHeart className="h-5 w-5 text-muted-foreground/50" />
           </div>
-          <p className="text-sm text-muted-foreground">Aucun événement planifié</p>
-          <Link href="/dashboard/events" className="mt-3 text-xs text-primary hover:underline">Créer un événement →</Link>
+          <p className="text-sm font-medium">Aucun événement planifié</p>
+          <Link href="/dashboard/events" className="mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors">Créer un événement →</Link>
         </div>
       ) : (
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-border">
           {upcoming.map(ev => {
             const days = daysUntil(ev.event_date!)
             const planned = ev.lines.reduce((s, l) => s + (l.type === 'income' ? Number(l.planned_amount) : -Number(l.planned_amount)), 0)
             const dayLabel = days === 0 ? "Aujourd'hui" : days === 1 ? 'Demain' : `Dans ${days}j`
             return (
-              <Link key={ev.id} href="/dashboard/events" className="group block px-6 py-3.5 hover:bg-white/4 transition-colors">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate group-hover:text-foreground transition-colors">{ev.name}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 capitalize">{formatLongDate(ev.event_date!)}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className={cn('text-[10px] font-semibold uppercase tracking-wider', days <= 3 ? 'text-amber-400' : 'text-muted-foreground')}>
-                      {dayLabel}
+              <Link key={ev.id} href="/dashboard/events" className="group flex items-center gap-4 px-5 py-3.5 hover:bg-muted/40 transition-colors">
+                {/* Date chip */}
+                <div className="shrink-0 text-center w-9">
+                  <p className="text-[10px] font-semibold uppercase text-muted-foreground">
+                    {new Date(ev.event_date! + 'T00:00:00').toLocaleDateString('fr-CH', { month: 'short' })}
+                  </p>
+                  <p className="text-lg font-bold leading-none tabular-nums">
+                    {new Date(ev.event_date! + 'T00:00:00').getDate()}
+                  </p>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{ev.name}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 capitalize">{formatLongDate(ev.event_date!)}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <span className={cn('text-[10px] font-semibold uppercase tracking-wider', days <= 3 ? 'text-amber-500' : 'text-muted-foreground')}>
+                    {dayLabel}
+                  </span>
+                  {ev.lines.length > 0 && (
+                    <p className={cn('text-[11px] tabular-nums mt-0.5', planned >= 0 ? 'text-emerald-500' : 'text-red-500')}>
+                      {planned >= 0 ? '+' : ''}{Math.round(planned)} CHF
                     </p>
-                    {ev.lines.length > 0 && (
-                      <p className={cn('text-[11px] tabular-nums mt-1', planned >= 0 ? 'text-emerald-400/80' : 'text-red-400/80')}>
-                        {planned >= 0 ? '+' : ''}{Math.round(planned)} CHF
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
               </Link>
             )
@@ -509,49 +518,51 @@ function MessagesWidget({ conversations, userId }: { conversations: Conversation
   ).length
 
   return (
-    <div className="rounded-2xl border border-white/7 bg-white/[0.035] backdrop-blur-md overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/6">
+    <div className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col h-full">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
         <div className="flex items-center gap-2.5">
-          <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-500/10">
+            <MessageSquare className="h-3.5 w-3.5 text-sky-500" />
+          </div>
           <h2 className="text-sm font-semibold">
             Messages <span className="font-heading italic font-normal text-muted-foreground">récents</span>
           </h2>
           {newishCount > 0 && (
-            <span className="text-[10px] bg-emerald-400/15 text-emerald-300 ring-1 ring-emerald-400/25 rounded-md px-1.5 py-0.5 font-semibold tabular-nums">
-              {newishCount} récent{newishCount > 1 ? 's' : ''}
+            <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20 rounded-md px-1.5 py-0.5 font-semibold tabular-nums">
+              {newishCount} nouveau{newishCount > 1 ? 'x' : ''}
             </span>
           )}
         </div>
-        <Link href="/dashboard/messages" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+        <Link href="/dashboard/messages" className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
           Ouvrir <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
       {recent.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-14 text-center px-6">
-          <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
+        <div className="flex flex-col items-center justify-center flex-1 py-14 text-center px-6">
+          <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center mb-4">
             <MessageSquare className="h-5 w-5 text-muted-foreground/50" />
           </div>
-          <p className="text-sm text-muted-foreground">Aucune conversation</p>
-          <Link href="/dashboard/messages" className="mt-3 text-xs text-primary hover:underline">Démarrer une conversation →</Link>
+          <p className="text-sm font-medium">Aucune conversation</p>
+          <Link href="/dashboard/messages" className="mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors">Démarrer une conversation →</Link>
         </div>
       ) : (
-        <div className="grid grid-cols-2 divide-x divide-white/5">
+        <div className="divide-y divide-border flex-1">
           {recent.map(conv => {
             const others = conv.participants?.filter(p => p.user_id !== userId) ?? []
             const title = conv.title ?? (others.length > 0 ? others.map(p => p.full_name || p.email).join(', ') : 'Moi-même')
             const initials = others[0] ? getInitials(others[0].full_name, others[0].email) : '?'
             const isNew = conv.last_message_at && (nowMs - new Date(conv.last_message_at).getTime()) < ONE_DAY
             return (
-              <Link key={conv.id} href="/dashboard/messages" className="group flex items-center gap-4 px-6 py-4 hover:bg-white/4 transition-colors">
-                <div className="relative">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-white/15 to-white/5 text-xs font-semibold ring-1 ring-white/10">
+              <Link key={conv.id} href="/dashboard/messages" className="group flex items-center gap-3 px-5 py-3.5 hover:bg-muted/40 transition-colors">
+                <div className="relative shrink-0">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-semibold">
                     {initials}
                   </div>
-                  {isNew && <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-background" />}
+                  {isNew && <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-card" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="text-sm font-medium truncate group-hover:text-foreground transition-colors">{title}</p>
+                    <p className="text-sm font-medium truncate">{title}</p>
                     {conv.last_message_at && (
                       <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">{timeAgo(conv.last_message_at)}</span>
                     )}
@@ -596,58 +607,58 @@ function NotesWidget({ notes }: { notes: Note[] }) {
   }
 
   return (
-    <div className="flex flex-col rounded-2xl border border-white/8 bg-white/3 backdrop-blur-sm overflow-hidden h-full">
+    <div className="flex flex-col rounded-2xl border border-border bg-card overflow-hidden h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/6">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/8">
-            <NotebookPen className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10">
+            <NotebookPen className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
           </div>
           <span className="text-sm font-semibold">Notes récentes</span>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href="/dashboard/notes?new=1"
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-white/8 hover:text-foreground transition-colors"
+            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             <Plus className="h-3 w-3" />
-            Nouvelle page
+            Nouvelle
           </Link>
           <Link
             href="/dashboard/notes"
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            <ArrowRight className="h-3.5 w-3.5" />
+            Voir tout <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
       </div>
 
       {/* Body */}
       {notes.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 py-10 text-center px-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/6">
-            <NotebookPen className="h-4 w-4 text-muted-foreground" />
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 py-14 text-center px-6">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted">
+            <NotebookPen className="h-5 w-5 text-muted-foreground/50" />
           </div>
-          <p className="text-sm text-muted-foreground">Aucune page pour l&apos;instant</p>
+          <p className="text-sm font-medium">Aucune page pour l&apos;instant</p>
           <Link
             href="/dashboard/notes?new=1"
-            className="text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             Créer une première page →
           </Link>
         </div>
       ) : (
-        <div className="flex-1 divide-y divide-white/5">
+        <div className="flex-1 divide-y divide-border">
           {notes.slice(0, 4).map(note => {
             const preview = stripMarkdown(note.content ?? '')
             return (
               <Link
                 key={note.id}
                 href="/dashboard/notes"
-                className="group flex flex-col gap-1 px-6 py-3.5 hover:bg-white/4 transition-colors"
+                className="group flex flex-col gap-1 px-5 py-3.5 hover:bg-muted/40 transition-colors"
               >
                 <div className="flex items-baseline justify-between gap-2">
-                  <p className="text-sm font-medium truncate group-hover:text-foreground transition-colors">
+                  <p className="text-sm font-medium truncate">
                     {note.title || 'Sans titre'}
                   </p>
                   <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
@@ -669,7 +680,7 @@ function NotesWidget({ notes }: { notes: Note[] }) {
       {notes.length > 4 && (
         <Link
           href="/dashboard/notes"
-          className="flex items-center justify-center gap-1.5 border-t border-white/6 py-3 text-xs text-muted-foreground hover:text-foreground hover:bg-white/4 transition-colors"
+          className="flex items-center justify-center gap-1.5 border-t border-border py-3 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
         >
           Voir toutes les pages <ChevronRight className="h-3.5 w-3.5" />
         </Link>
@@ -820,19 +831,25 @@ export function DashboardClient({ data, onRefresh: _onRefresh }: { data: Dashboa
   return (
     <div className="h-full flex flex-col">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-8 py-5 border-b border-white/6 shrink-0">
+      <div className="flex items-center justify-between px-8 py-5 border-b border-border shrink-0">
         <div>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">
-            {association.name} · {roleLabel(data.callerRole as import('@/types/database').Role, customRoleLabels)}
-          </p>
-          <h1 className="text-[28px] font-semibold mt-1 leading-tight tracking-tight">
-            {greeting}{firstName && (<>, <span className="font-heading italic font-normal text-[32px]">{firstName}</span></>)}
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">
+              {association.name}
+            </p>
+            <span className="text-muted-foreground/30 text-[10px]">·</span>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">
+              {roleLabel(data.callerRole as import('@/types/database').Role, customRoleLabels)}
+            </p>
+          </div>
+          <h1 className="text-2xl font-semibold leading-tight tracking-tight">
+            {greeting}{firstName && (<>, <span className="font-heading italic font-normal text-[28px]">{firstName}</span></>)}
           </h1>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2.5">
+          <div className="hidden md:flex items-center gap-2 rounded-xl border border-border px-3 py-1.5 text-xs text-muted-foreground bg-muted/30">
             <Calendar className="h-3.5 w-3.5" />
-            <span className="capitalize">{today}</span>
+            <span className="capitalize font-medium">{today}</span>
           </div>
           {/* Customize button */}
           <div className="relative">
@@ -840,8 +857,10 @@ export function DashboardClient({ data, onRefresh: _onRefresh }: { data: Dashboa
               onClick={() => setCustomizeOpen(v => !v)}
               title="Personnaliser le tableau de bord"
               className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-xl border border-border transition-colors',
-                customizeOpen ? 'bg-foreground/10 text-foreground border-foreground/20' : 'bg-background/50 text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
+                'flex h-8 w-8 items-center justify-center rounded-xl border transition-colors',
+                customizeOpen
+                  ? 'bg-foreground/10 text-foreground border-foreground/20'
+                  : 'border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground'
               )}
             >
               <Settings2 className="h-3.5 w-3.5" />
@@ -858,17 +877,18 @@ export function DashboardClient({ data, onRefresh: _onRefresh }: { data: Dashboa
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-8 space-y-6">
+      <div className="flex-1 overflow-y-auto p-8 space-y-5">
 
         {/* Hero row — always fixed */}
-        <div className="grid grid-cols-5 gap-5">
+        <div className="grid grid-cols-5 gap-4">
 
           {/* ── Votre espace ── */}
-          <div className="col-span-3 relative overflow-hidden rounded-2xl border border-white/8 backdrop-blur-md"
-            style={{ background: `linear-gradient(135deg, ${accent}18 0%, ${accent}06 40%, transparent 70%)` }}>
-            <div aria-hidden className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full blur-3xl opacity-20" style={{ backgroundColor: accent }} />
-
-            <div className="relative flex items-center gap-4 px-5 py-4">
+          <div
+            className="col-span-3 relative overflow-hidden rounded-2xl border border-border bg-card"
+            style={{ background: `linear-gradient(135deg, ${accent}14 0%, ${accent}05 50%, transparent 80%)` }}
+          >
+            <div aria-hidden className="pointer-events-none absolute -top-20 -right-20 h-56 w-56 rounded-full blur-3xl opacity-15" style={{ backgroundColor: accent }} />
+            <div className="relative flex items-center gap-5 px-6 py-5">
               <LogoUpload
                 associationId={associationId}
                 associationName={association.name}
@@ -877,34 +897,35 @@ export function DashboardClient({ data, onRefresh: _onRefresh }: { data: Dashboa
                 accent={accent}
               />
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-1.5 mb-1.5">
-                  <Sparkles className="h-3 w-3" /> Votre espace · depuis {foundedYear}
-                </p>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Sparkles className="h-3 w-3 text-muted-foreground" />
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Votre espace</p>
+                </div>
                 <h2 className="font-heading italic font-normal text-3xl leading-tight tracking-tight truncate">{association.name}</h2>
                 {association.description && (
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{association.description}</p>
+                  <p className="text-xs text-muted-foreground mt-1.5 line-clamp-1">{association.description}</p>
                 )}
               </div>
             </div>
 
-            <div className="h-px mx-5 bg-white/[0.06]" />
+            <div className="h-px mx-6 bg-border" />
 
-            <div className="relative px-5 py-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Composition</span>
-                <span className="text-[11px] text-muted-foreground tabular-nums">
-                  <span className="font-semibold text-foreground">{stats.memberCount}</span> {stats.memberCount > 1 ? 'membres' : 'membre'}
+            <div className="relative px-6 py-4 space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-muted-foreground">Composition du comité</span>
+                <span className="tabular-nums font-semibold">
+                  {stats.memberCount} {stats.memberCount > 1 ? 'membres' : 'membre'}
                 </span>
               </div>
-              <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06] gap-px">
-                {roleCounts.president > 0 && <div className="bg-violet-400 transition-all" style={{ width: `${(roleCounts.president / totalMembers) * 100}%` }} />}
-                {roleCounts.treasurer > 0 && <div className="bg-emerald-400 transition-all" style={{ width: `${(roleCounts.treasurer / totalMembers) * 100}%` }} />}
-                {roleCounts.secretary > 0 && <div className="bg-blue-400 transition-all" style={{ width: `${(roleCounts.secretary / totalMembers) * 100}%` }} />}
-                {roleCounts.member > 0 && <div className="bg-white/25 transition-all" style={{ width: `${(roleCounts.member / totalMembers) * 100}%` }} />}
+              <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted gap-px">
+                {roleCounts.president > 0 && <div className="bg-violet-500 transition-all" style={{ width: `${(roleCounts.president / totalMembers) * 100}%` }} />}
+                {roleCounts.treasurer > 0 && <div className="bg-emerald-500 transition-all" style={{ width: `${(roleCounts.treasurer / totalMembers) * 100}%` }} />}
+                {roleCounts.secretary > 0 && <div className="bg-sky-500 transition-all" style={{ width: `${(roleCounts.secretary / totalMembers) * 100}%` }} />}
+                {roleCounts.member > 0 && <div className="bg-muted-foreground/30 transition-all" style={{ width: `${(roleCounts.member / totalMembers) * 100}%` }} />}
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
                 {(['president', 'treasurer', 'secretary', 'member'] as const).map(role => {
-                  const dotColors = { president: 'bg-violet-400', treasurer: 'bg-emerald-400', secretary: 'bg-blue-400', member: 'bg-white/25' }
+                  const dotColors = { president: 'bg-violet-500', treasurer: 'bg-emerald-500', secretary: 'bg-sky-500', member: 'bg-muted-foreground/40' }
                   if (roleCounts[role] === 0) return null
                   return (
                     <span key={role} className="flex items-center gap-1.5">
@@ -922,75 +943,80 @@ export function DashboardClient({ data, onRefresh: _onRefresh }: { data: Dashboa
           <div className="col-span-2 grid grid-rows-3 gap-4">
 
             {/* Membres */}
-            <Link href="/dashboard/members" className="group relative overflow-hidden rounded-2xl border border-white/7 bg-white/[0.03] backdrop-blur-md px-5 py-4 hover:bg-white/[0.06] transition-all hover:border-white/12 flex items-center justify-between gap-4">
+            <Link href="/dashboard/members" className="group relative overflow-hidden rounded-2xl border border-border bg-card px-5 py-4 hover:bg-muted/30 transition-colors flex items-center justify-between gap-4">
+              <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-violet-500/60 via-violet-500/20 to-transparent rounded-t-2xl" />
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Membres</p>
-                <p className="text-3xl font-bold tabular-nums leading-none mt-1.5">{stats.memberCount}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Membres</p>
+                <p className="text-3xl font-bold tabular-nums leading-none mt-2">{stats.memberCount}</p>
                 <div className="flex items-center gap-1 mt-2">
                   {(['president', 'treasurer', 'secretary', 'member'] as const).map(role => {
-                    const colors = { president: 'bg-violet-400', treasurer: 'bg-emerald-400', secretary: 'bg-blue-400', member: 'bg-white/20' }
+                    const colors = { president: 'bg-violet-500', treasurer: 'bg-emerald-500', secretary: 'bg-sky-500', member: 'bg-muted-foreground/25' }
                     if (roleCounts[role] === 0) return null
                     return <span key={role} className={cn('h-1.5 rounded-full', colors[role])} style={{ width: `${Math.max(6, (roleCounts[role] / totalMembers) * 48)}px` }} />
                   })}
                 </div>
               </div>
-              <div className="h-9 w-9 rounded-xl bg-white/5 flex items-center justify-center ring-1 ring-white/8 group-hover:ring-white/15 transition-all shrink-0">
-                <Users className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+              <div className="h-10 w-10 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0 group-hover:bg-violet-500/15 transition-colors">
+                <Users className="h-4 w-4 text-violet-500" />
               </div>
             </Link>
 
             {/* Trésorerie */}
-            <Link href="/dashboard/finances" className="group relative overflow-hidden rounded-2xl border border-white/7 bg-white/[0.03] backdrop-blur-md px-5 py-4 hover:bg-white/[0.06] transition-all hover:border-white/12 flex items-center justify-between gap-4">
+            <Link href="/dashboard/finances" className="group relative overflow-hidden rounded-2xl border border-border bg-card px-5 py-4 hover:bg-muted/30 transition-colors flex items-center justify-between gap-4">
+              <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-500/60 via-emerald-500/20 to-transparent rounded-t-2xl" />
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Trésorerie</p>
-                <p className={cn('text-2xl font-bold tabular-nums leading-none mt-1.5 truncate', stats.balance < 0 ? 'text-red-300' : stats.balance > 0 ? 'text-emerald-300' : 'text-foreground')}>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Trésorerie</p>
+                <p className={cn('text-2xl font-bold tabular-nums leading-none mt-2 truncate',
+                  stats.balance < 0 ? 'text-red-500' : stats.balance > 0 ? 'text-emerald-500' : 'text-foreground'
+                )}>
                   {stats.balance >= 0 ? '+' : ''}{new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(stats.balance)}
                 </p>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="flex items-center gap-1 text-[11px] text-emerald-400/80">
+                  <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
                     <TrendingUp className="h-3 w-3" />{new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(stats.income)}
                   </span>
-                  <span className="text-white/20">·</span>
-                  <span className="flex items-center gap-1 text-[11px] text-red-400/80">
+                  <span className="text-border">·</span>
+                  <span className="flex items-center gap-1 text-[11px] text-red-600 dark:text-red-400">
                     <TrendingDown className="h-3 w-3" />{new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(stats.expenses)}
                   </span>
                 </div>
               </div>
-              <div className="h-9 w-9 rounded-xl bg-white/5 flex items-center justify-center ring-1 ring-white/8 group-hover:ring-white/15 transition-all shrink-0">
-                <Wallet className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+              <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/15 transition-colors">
+                <Wallet className="h-4 w-4 text-emerald-500" />
               </div>
             </Link>
 
             {/* Événements */}
-            <Link href="/dashboard/events" className="group relative overflow-hidden rounded-2xl border border-white/7 bg-white/[0.03] backdrop-blur-md px-5 py-4 hover:bg-white/[0.06] transition-all hover:border-white/12 flex items-center justify-between gap-4">
+            <Link href="/dashboard/events" className="group relative overflow-hidden rounded-2xl border border-border bg-card px-5 py-4 hover:bg-muted/30 transition-colors flex items-center justify-between gap-4">
+              <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-rose-500/60 via-rose-500/20 to-transparent rounded-t-2xl" />
               {upcomingFirst ? (
                 <>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Prochain événement</p>
-                    <p className="text-sm font-semibold mt-1.5 truncate">{upcomingFirst.name}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Prochain événement</p>
+                    <p className="text-sm font-semibold mt-2 truncate leading-tight">{upcomingFirst.name}</p>
                     <span className={cn(
                       'inline-flex items-center gap-1 text-[11px] font-medium mt-1.5',
-                      daysUntil(upcomingFirst.event_date!) <= 1 ? 'text-amber-400' : 'text-muted-foreground'
+                      daysUntil(upcomingFirst.event_date!) <= 1 ? 'text-amber-500' : 'text-muted-foreground'
                     )}>
                       <CalendarDays className="h-3 w-3" />
                       {daysUntil(upcomingFirst.event_date!) === 0 ? "Aujourd'hui"
                         : daysUntil(upcomingFirst.event_date!) === 1 ? 'Demain'
-                        : `Dans ${daysUntil(upcomingFirst.event_date!)} j`}
+                        : `Dans ${daysUntil(upcomingFirst.event_date!)}j`}
                     </span>
                   </div>
-                  <div className="h-9 w-9 rounded-xl bg-white/5 flex items-center justify-center ring-1 ring-white/8 group-hover:ring-white/15 transition-all shrink-0">
-                    <CalendarHeart className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  <div className="h-10 w-10 rounded-xl bg-rose-500/10 flex items-center justify-center shrink-0 group-hover:bg-rose-500/15 transition-colors">
+                    <CalendarHeart className="h-4 w-4 text-rose-500" />
                   </div>
                 </>
               ) : (
                 <>
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Événements</p>
-                    <p className="text-sm font-medium text-muted-foreground/70 mt-2">Aucun à venir</p>
-                    <p className="text-[11px] text-primary/70 mt-1">Planifier →</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Événements</p>
+                    <p className="text-sm font-medium text-muted-foreground mt-2">Aucun à venir</p>
+                    <p className="text-[11px] text-muted-foreground/60 mt-1">Planifier →</p>
                   </div>
-                  <div className="h-9 w-9 rounded-xl bg-white/5 flex items-center justify-center ring-1 ring-white/8 group-hover:ring-white/15 transition-all shrink-0">
-                    <CalendarHeart className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  <div className="h-10 w-10 rounded-xl bg-rose-500/10 flex items-center justify-center shrink-0 group-hover:bg-rose-500/15 transition-colors">
+                    <CalendarHeart className="h-4 w-4 text-rose-500" />
                   </div>
                 </>
               )}
@@ -1009,7 +1035,7 @@ export function DashboardClient({ data, onRefresh: _onRefresh }: { data: Dashboa
           <div className="space-y-6">
             {renderWidgetRows()}
             {visibleWidgets.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-white/10 flex flex-col items-center justify-center py-16 text-center">
+              <div className="rounded-2xl border border-dashed border-border flex flex-col items-center justify-center py-16 text-center">
                 <p className="text-sm text-muted-foreground">Tous les widgets sont masqués</p>
                 <button onClick={() => updateConfig(DEFAULT_CONFIG)} className="mt-3 text-xs text-primary hover:underline">
                   Réafficher tout

@@ -59,7 +59,7 @@ function NoteListItem({
       onClick={onClick}
       className={cn(
         'w-full text-left rounded-xl p-3 transition-colors cursor-pointer border border-transparent',
-        active ? 'bg-white/8 border-white/10' : 'hover:bg-white/4 hover:border-white/6',
+        active ? 'bg-muted border-border' : 'hover:bg-muted/40 hover:border-border',
       )}
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
@@ -116,8 +116,8 @@ function FolderRailItem({
         className={cn(
           'w-full text-left flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
           active
-            ? 'bg-white/8 text-foreground'
-            : 'text-muted-foreground hover:bg-white/5 hover:text-foreground',
+            ? 'bg-muted text-foreground'
+            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
           isDragOver && 'ring-1 ring-primary/40 bg-primary/5',
         )}
       >
@@ -135,7 +135,7 @@ function FolderRailItem({
             onDelete()
           }}
           title="Supprimer le dossier"
-          className="absolute right-1 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 hover:text-red-400 hover:bg-white/5 transition-colors"
+          className="absolute right-1 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 hover:text-red-400 hover:bg-muted/50 transition-colors"
         >
           <Trash2 className="h-3 w-3" />
         </button>
@@ -170,7 +170,7 @@ function NewFolderInline({ onCreate }: { onCreate: (name: string, color: string)
     return (
       <button
         onClick={() => setOpen(true)}
-        className="mt-1 w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
+        className="mt-1 w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
       >
         <Plus className="h-3.5 w-3.5" />
         Nouveau dossier
@@ -179,7 +179,7 @@ function NewFolderInline({ onCreate }: { onCreate: (name: string, color: string)
   }
 
   return (
-    <div className="mt-1 rounded-lg border border-white/10 bg-white/[0.03] p-2 space-y-2">
+    <div className="mt-1 rounded-lg border border-border bg-muted/30 p-2 space-y-2">
       <div className="flex items-center gap-2">
         <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
         <input
@@ -208,7 +208,7 @@ function NewFolderInline({ onCreate }: { onCreate: (name: string, color: string)
             onClick={() => setColor(c)}
             className={cn(
               'h-4 w-4 rounded-full transition-transform hover:scale-110 ring-1',
-              c === color ? 'ring-white' : 'ring-white/15',
+              c === color ? 'ring-foreground/60' : 'ring-border',
             )}
             style={{ backgroundColor: c }}
           />
@@ -220,7 +220,7 @@ function NewFolderInline({ onCreate }: { onCreate: (name: string, color: string)
             setName('')
             setOpen(false)
           }}
-          className="h-7 px-2 text-xs rounded-md hover:bg-white/5 text-muted-foreground transition-colors"
+          className="h-7 px-2 text-xs rounded-md hover:bg-muted/50 text-muted-foreground transition-colors"
         >
           <X className="h-3 w-3" />
         </button>
@@ -238,7 +238,7 @@ function NewFolderInline({ onCreate }: { onCreate: (name: string, color: string)
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 text-center px-8">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/8">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/30 border border-border">
         <NotebookPen className="h-6 w-6 text-muted-foreground/40" />
       </div>
       <div className="space-y-1">
@@ -288,7 +288,7 @@ function NoteEditor({
         <div className="flex items-center gap-2">
           {folder && (
             <span
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/[0.06] border border-white/10 text-muted-foreground/70"
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/50 border border-border text-muted-foreground/70"
             >
               <span
                 className="h-1.5 w-1.5 rounded-full"
@@ -331,7 +331,7 @@ function NoteEditor({
       />
 
       {/* Divider */}
-      <div className="border-t border-white/6" />
+      <div className="border-t border-border" />
 
       {/* Content textarea */}
       <textarea
@@ -475,7 +475,7 @@ export function NotesShell({ notes, folders, associationId, onRefresh }: Props) 
   return (
     <div className="h-full flex flex-col">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-8 py-5 border-b border-white/6 shrink-0">
+      <div className="flex items-center justify-between px-8 py-5 border-b border-border shrink-0">
         <h1 className="text-sm font-semibold">Pages</h1>
         <button
           onClick={() => handleCreateNote()}
@@ -506,8 +506,8 @@ export function NotesShell({ notes, folders, associationId, onRefresh }: Props) 
               className={cn(
                 'w-full text-left flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
                 activeFolderId === 'all'
-                  ? 'bg-white/8 text-foreground'
-                  : 'text-muted-foreground hover:bg-white/5 hover:text-foreground',
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
               )}
             >
               <FolderOpen className="h-3.5 w-3.5 shrink-0" />
