@@ -36,7 +36,6 @@ const PILOTAGE_ITEMS = [
 
 const OPERATIONS_ITEMS = [
   { href: '/dashboard/tasks', label: 'Tâches', icon: CheckSquare },
-  { href: '/dashboard/notes', label: 'Notes', icon: NotebookPen },
   { href: '/dashboard/events', label: 'Événements', icon: CalendarDays },
   { href: '/dashboard/calendar', label: 'Agenda', icon: Calendar },
   { href: '/dashboard/documents', label: 'Documents', icon: FileText },
@@ -397,6 +396,14 @@ export function AppSidebar({ profile, memberCount }: Props) {
       {/* ── Footer ── */}
       <div className="border-t border-border shrink-0">
         <div className={cn('pt-2', isExpanded ? 'px-3' : 'px-2')}>
+          <NavItem
+            href="/dashboard/notes"
+            label="Notes"
+            icon={NotebookPen}
+            isActive={isActive('/dashboard/notes')}
+            accentColor={accentColor}
+            collapsed={!isExpanded}
+          />
           <NavItem
             href="/dashboard/settings"
             label="Paramètres"

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { LogoUpload } from '@/features/dashboard/logo-upload'
 import { roleLabel } from '@/lib/roles'
-import type { Task, RoleLabels, EventBudgetWithLines } from '@/types/database'
+import type { Task, RoleLabels, EventBudgetWithLines, Note } from '@/types/database'
 import type { ConversationWithDetails } from '@/lib/actions/messages'
 import type { DashboardStats } from '@/lib/actions/dashboard'
 import {
@@ -12,13 +12,13 @@ import {
   CalendarHeart, CalendarDays, Inbox, TrendingUp, TrendingDown, Wallet,
   Settings2, GripVertical, Eye, EyeOff, ChevronUp, ChevronDown, X,
   CheckCircle2, Circle, Image, UserPlus, CalendarPlus, Receipt, Globe,
-  Rocket, ChevronRight,
+  Rocket, ChevronRight, NotebookPen, Plus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type WidgetId = 'tasks' | 'events' | 'messages'
+export type WidgetId = 'tasks' | 'events' | 'messages' | 'notes'
 
 interface WidgetConfig {
   order: WidgetId[]
@@ -26,7 +26,7 @@ interface WidgetConfig {
 }
 
 const DEFAULT_CONFIG: WidgetConfig = {
-  order: ['tasks', 'events', 'messages'],
+  order: ['tasks', 'events', 'messages', 'notes'],
   hidden: [],
 }
 
@@ -36,6 +36,7 @@ const WIDGET_LABELS: Record<WidgetId, string> = {
   tasks: 'Pour vous',
   events: 'Prochains événements',
   messages: 'Messages récents',
+  notes: 'Notes récentes',
 }
 
 export interface DashboardData {
@@ -58,6 +59,7 @@ export interface DashboardData {
   tasks: Task[]
   budgets: EventBudgetWithLines[]
   conversations: ConversationWithDetails[]
+  recentNotes: Note[]
   userId: string
   associationId: string
   callerRole: string
@@ -567,12 +569,121 @@ function MessagesWidget({ conversations, userId }: { conversations: Conversation
   )
 }
 
+// ─── Notes Widget ────────────────────────────────────────────────────────────
+
+function NotesWidget({ notes }: { notes: Note[] }) {
+  function relativeDate(iso: string) {
+    const diff = Date.now() - new Date(iso).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return "À l'instant"
+    if (mins < 60) return `Il y a ${mins} min`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `Il y a ${hrs} h`
+    const days = Math.floor(hrs / 24)
+    if (days < 7) return `Il y a ${days} j`
+    return new Date(iso).toLocaleDateString('fr-CH', { day: 'numeric', month: 'short' })
+  }
+
+  function stripMarkdown(text: string) {
+    return text
+      .replace(/#{1,6}\s/g, '')
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/\*(.+?)\*/g, '$1')
+      .replace(/`(.+?)`/g, '$1')
+      .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+      .replace(/^[-*+]\s/gm, '')
+      .trim()
+  }
+
+  return (
+    <div className="flex flex-col rounded-2xl border border-white/8 bg-white/3 backdrop-blur-sm overflow-hidden h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-white/6">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/8">
+            <NotebookPen className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+          <span className="text-sm font-semibold">Notes récentes</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard/notes?new=1"
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-white/8 hover:text-foreground transition-colors"
+          >
+            <Plus className="h-3 w-3" />
+            Nouvelle page
+          </Link>
+          <Link
+            href="/dashboard/notes"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </div>
+
+      {/* Body */}
+      {notes.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 py-10 text-center px-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/6">
+            <NotebookPen className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <p className="text-sm text-muted-foreground">Aucune page pour l&apos;instant</p>
+          <Link
+            href="/dashboard/notes?new=1"
+            className="text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+          >
+            Créer une première page →
+          </Link>
+        </div>
+      ) : (
+        <div className="flex-1 divide-y divide-white/5">
+          {notes.slice(0, 4).map(note => {
+            const preview = stripMarkdown(note.content ?? '')
+            return (
+              <Link
+                key={note.id}
+                href="/dashboard/notes"
+                className="group flex flex-col gap-1 px-6 py-3.5 hover:bg-white/4 transition-colors"
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="text-sm font-medium truncate group-hover:text-foreground transition-colors">
+                    {note.title || 'Sans titre'}
+                  </p>
+                  <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
+                    {relativeDate(note.updated_at)}
+                  </span>
+                </div>
+                {preview && (
+                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                    {preview}
+                  </p>
+                )}
+              </Link>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Footer link when there are more */}
+      {notes.length > 4 && (
+        <Link
+          href="/dashboard/notes"
+          className="flex items-center justify-center gap-1.5 border-t border-white/6 py-3 text-xs text-muted-foreground hover:text-foreground hover:bg-white/4 transition-colors"
+        >
+          Voir toutes les pages <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+      )}
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function DashboardClient({ data, onRefresh: _onRefresh }: { data: DashboardData; onRefresh?: () => void }) {
   const {
     firstName, greeting, today, isPresident,
-    association, stats, roleCounts, tasks, budgets, conversations,
+    association, stats, roleCounts, tasks, budgets, conversations, recentNotes,
     userId, associationId, customRoleLabels,
   } = data
 
@@ -670,24 +781,31 @@ export function DashboardClient({ data, onRefresh: _onRefresh }: { data: Dashboa
       case 'tasks':    return <div key="tasks"    className={className}><TasksWidget tasks={tasks} userId={userId} /></div>
       case 'events':   return <div key="events"   className={className}><EventsWidget budgets={budgets} /></div>
       case 'messages': return <div key="messages" className={className}><MessagesWidget conversations={conversations} userId={userId} /></div>
+      case 'notes':    return <div key="notes"    className={className}><NotesWidget notes={recentNotes} /></div>
     }
   }
 
-  // Group consecutive tasks+events into a shared row; everything else is full-width
+  // Pair logic: tasks+events share a 5-col row; messages+notes share a 2-col row
   function renderWidgetRows() {
     const rows: React.ReactNode[] = []
     let i = 0
     while (i < visibleWidgets.length) {
       const cur = visibleWidgets[i]
       const nxt = visibleWidgets[i + 1]
-      const pair = new Set(['tasks', 'events'])
-      if (pair.has(cur) && nxt && pair.has(nxt)) {
-        // Side by side — tasks gets col-span-3, events col-span-2
+      if ((cur === 'tasks' || cur === 'events') && nxt && (nxt === 'tasks' || nxt === 'events')) {
         const tasksFirst = cur === 'tasks'
         rows.push(
           <div key={`row-${i}`} className="grid grid-cols-5 gap-5">
             {renderWidget(tasksFirst ? 'tasks' : 'events', 'col-span-3')}
             {renderWidget(tasksFirst ? 'events' : 'tasks', 'col-span-2')}
+          </div>
+        )
+        i += 2
+      } else if ((cur === 'messages' || cur === 'notes') && nxt && (nxt === 'messages' || nxt === 'notes')) {
+        rows.push(
+          <div key={`row-${i}`} className="grid grid-cols-2 gap-5">
+            {renderWidget(cur)}
+            {renderWidget(nxt)}
           </div>
         )
         i += 2

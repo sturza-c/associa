@@ -42,38 +42,40 @@ function NoteListItem({
   note,
   active,
   onClick,
+  onDragStart,
+  onDragEnd,
 }: {
   note: Note
   active: boolean
   onClick: () => void
+  onDragStart: (e: React.DragEvent) => void
+  onDragEnd: () => void
 }) {
   return (
-    <button
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       onClick={onClick}
       className={cn(
-        'w-full text-left rounded-xl px-3 py-2.5 transition-colors',
-        active ? 'bg-white/8' : 'hover:bg-white/4',
+        'w-full text-left rounded-xl p-3 transition-colors cursor-pointer border border-transparent',
+        active ? 'bg-white/8 border-white/10' : 'hover:bg-white/4 hover:border-white/6',
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <p
-          className={cn(
-            'text-sm font-medium truncate',
-            !note.title && 'text-muted-foreground/50 italic font-heading',
-          )}
-        >
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <p className={cn('text-sm font-medium leading-snug line-clamp-1', !note.title && 'text-muted-foreground/50 italic')}>
           {note.title || 'Sans titre'}
         </p>
-        <span className="text-[10px] text-muted-foreground/40 shrink-0">
-          {relativeDate(note.updated_at)}
-        </span>
+        <span className="text-[10px] text-muted-foreground/40 shrink-0 mt-0.5">{relativeDate(note.updated_at)}</span>
       </div>
-      {note.content && (
-        <p className="text-xs text-muted-foreground/50 truncate mt-0.5 leading-snug">
-          {note.content.slice(0, 80)}
+      {note.content ? (
+        <p className="text-xs text-muted-foreground/55 line-clamp-2 leading-relaxed">
+          {note.content.replace(/\n+/g, ' ').slice(0, 120)}
         </p>
+      ) : (
+        <p className="text-xs text-muted-foreground/30 italic">Pas de contenu</p>
       )}
-    </button>
+    </div>
   )
 }
 
@@ -83,12 +85,20 @@ function FolderRailItem({
   active,
   onSelect,
   onDelete,
+  isDragOver,
+  onDragOver,
+  onDragLeave,
+  onDrop,
 }: {
   folder: NoteFolder
   noteCount: number
   active: boolean
   onSelect: () => void
   onDelete: () => void
+  isDragOver: boolean
+  onDragOver: (e: React.DragEvent) => void
+  onDragLeave: () => void
+  onDrop: (e: React.DragEvent) => void
 }) {
   const [hovered, setHovered] = useState(false)
 
@@ -97,6 +107,9 @@ function FolderRailItem({
       className="relative group"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
     >
       <button
         onClick={onSelect}
@@ -105,6 +118,7 @@ function FolderRailItem({
           active
             ? 'bg-white/8 text-foreground'
             : 'text-muted-foreground hover:bg-white/5 hover:text-foreground',
+          isDragOver && 'ring-1 ring-primary/40 bg-primary/5',
         )}
       >
         <span
@@ -228,9 +242,9 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         <NotebookPen className="h-6 w-6 text-muted-foreground/40" />
       </div>
       <div className="space-y-1">
-        <p className="text-sm font-medium text-muted-foreground">Aucune note</p>
+        <p className="text-sm font-medium text-muted-foreground">Aucune page</p>
         <p className="text-xs text-muted-foreground/50">
-          Créez votre première note pour commencer
+          Créez votre première page pour commencer
         </p>
       </div>
       <button
@@ -238,7 +252,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
       >
         <Plus className="h-4 w-4" />
-        Créer une note
+        Créer une page
       </button>
     </div>
   )
@@ -268,7 +282,7 @@ function NoteEditor({
   const folder = folderId ? folders.find(f => f.id === folderId) : null
 
   return (
-    <div className="max-w-2xl mx-auto px-8 py-10 space-y-4">
+    <div className="max-w-3xl mx-auto px-12 py-14 space-y-4">
       {/* Top meta bar */}
       <div className="flex items-center justify-between text-xs text-muted-foreground/50">
         <div className="flex items-center gap-2">
@@ -301,7 +315,7 @@ function NoteEditor({
         </div>
         <button
           onClick={onDelete}
-          title="Supprimer la note"
+          title="Supprimer la page"
           className="flex items-center justify-center rounded-md p-1 text-muted-foreground/40 hover:text-red-400 transition-colors"
         >
           <Trash2 className="h-4 w-4" />
@@ -313,7 +327,7 @@ function NoteEditor({
         value={title}
         onChange={e => onTitleChange(e.target.value)}
         placeholder="Sans titre"
-        className="w-full bg-transparent text-2xl font-bold outline-none placeholder:text-muted-foreground/25 border-none"
+        className="w-full bg-transparent text-3xl font-bold outline-none placeholder:text-muted-foreground/25 border-none"
       />
 
       {/* Divider */}
@@ -329,8 +343,8 @@ function NoteEditor({
           el.style.height = 'auto'
           el.style.height = el.scrollHeight + 'px'
         }}
-        placeholder="Commencer à écrire..."
-        className="w-full resize-none bg-transparent text-sm leading-relaxed outline-none placeholder:text-muted-foreground/25 min-h-[60vh]"
+        placeholder="Commencez à écrire..."
+        className="w-full resize-none bg-transparent text-[15px] leading-[1.75] outline-none placeholder:text-muted-foreground/25 min-h-[60vh]"
         style={{ height: 'auto' }}
       />
     </div>
@@ -355,6 +369,8 @@ export function NotesShell({ notes, folders, associationId, onRefresh }: Props) 
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'dirty'>('saved')
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const [creating, setCreating] = useState(false)
+  const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null)
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null)
 
   // Sync editor when selected note changes
   useEffect(() => {
@@ -425,14 +441,14 @@ export function NotesShell({ notes, folders, associationId, onRefresh }: Props) 
 
   async function handleDeleteNote() {
     if (!selectedNoteId) return
-    if (!confirm('Supprimer cette note ?')) return
+    if (!confirm('Supprimer cette page ?')) return
     await deleteNote(selectedNoteId, associationId)
     setSelectedNoteId(null)
     onRefresh()
   }
 
   async function handleDeleteFolder(folderId: string) {
-    if (!confirm('Supprimer ce dossier ? Les notes seront conservées sans dossier.')) return
+    if (!confirm('Supprimer ce dossier ? Les pages seront conservées sans dossier.')) return
     await deleteNoteFolder(folderId, associationId)
     if (activeFolderId === folderId) setActiveFolderId('all')
     onRefresh()
@@ -448,18 +464,26 @@ export function NotesShell({ notes, folders, associationId, onRefresh }: Props) 
     }
   }
 
+  async function handleDropNoteInFolder(noteId: string, folderId: string | null) {
+    await updateNote(noteId, associationId, { folderId })
+    onRefresh()
+  }
+
+  // suppress unused warning — draggingNoteId is set but only used to trigger re-renders
+  void draggingNoteId
+
   return (
     <div className="h-full flex flex-col">
       {/* Top bar */}
       <div className="flex items-center justify-between px-8 py-5 border-b border-white/6 shrink-0">
-        <h1 className="text-sm font-semibold">Notes</h1>
+        <h1 className="text-sm font-semibold">Pages</h1>
         <button
           onClick={() => handleCreateNote()}
           disabled={creating}
           className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
         >
           <Plus className="h-4 w-4" />
-          Nouvelle note
+          Nouvelle page
         </button>
       </div>
 
@@ -467,11 +491,17 @@ export function NotesShell({ notes, folders, associationId, onRefresh }: Props) 
         {/* Left rail */}
         <CollapsibleRail>
           <div className="overflow-y-auto h-full p-3 space-y-4 pt-8">
-            {/* All notes */}
+            {/* All pages */}
             <button
               onClick={() => {
                 setActiveFolderId('all')
                 setSelectedNoteId(null)
+              }}
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => {
+                e.preventDefault()
+                const noteId = e.dataTransfer.getData('noteId')
+                if (noteId) handleDropNoteInFolder(noteId, null)
               }}
               className={cn(
                 'w-full text-left flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
@@ -481,7 +511,7 @@ export function NotesShell({ notes, folders, associationId, onRefresh }: Props) 
               )}
             >
               <FolderOpen className="h-3.5 w-3.5 shrink-0" />
-              <span className="flex-1">Toutes les notes</span>
+              <span className="flex-1">Toutes les pages</span>
               <span className="text-xs text-muted-foreground/50 tabular-nums">{notes.length}</span>
             </button>
 
@@ -501,17 +531,28 @@ export function NotesShell({ notes, folders, associationId, onRefresh }: Props) 
                     setSelectedNoteId(null)
                   }}
                   onDelete={() => handleDeleteFolder(f.id)}
+                  isDragOver={dragOverFolderId === f.id}
+                  onDragOver={e => { e.preventDefault(); setDragOverFolderId(f.id) }}
+                  onDragLeave={() => setDragOverFolderId(null)}
+                  onDrop={e => {
+                    e.preventDefault()
+                    const noteId = e.dataTransfer.getData('noteId')
+                    if (noteId) {
+                      handleDropNoteInFolder(noteId, f.id)
+                      setDragOverFolderId(null)
+                    }
+                  }}
                 />
               ))}
               <NewFolderInline onCreate={handleCreateFolder} />
             </div>
 
-            {/* Notes list */}
+            {/* Pages list */}
             <div>
               <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                 {activeFolderId === 'all'
-                  ? 'Toutes'
-                  : folders.find(f => f.id === activeFolderId)?.name ?? 'Notes'}
+                  ? 'Toutes les pages'
+                  : folders.find(f => f.id === activeFolderId)?.name ?? 'Pages'}
               </p>
               {filteredNotes.map(n => (
                 <NoteListItem
@@ -519,11 +560,19 @@ export function NotesShell({ notes, folders, associationId, onRefresh }: Props) 
                   note={n}
                   active={selectedNoteId === n.id}
                   onClick={() => handleSelectNote(n.id)}
+                  onDragStart={e => {
+                    e.dataTransfer.setData('noteId', n.id)
+                    setDraggingNoteId(n.id)
+                  }}
+                  onDragEnd={() => {
+                    setDraggingNoteId(null)
+                    setDragOverFolderId(null)
+                  }}
                 />
               ))}
               {filteredNotes.length === 0 && (
                 <p className="px-2 py-2 text-xs text-muted-foreground/50 italic font-heading">
-                  Aucune note
+                  Aucune page
                 </p>
               )}
             </div>

@@ -6,6 +6,7 @@ import { getDashboardStats } from '@/lib/actions/dashboard'
 import { getConversations } from '@/lib/actions/messages'
 import { getTasks } from '@/lib/actions/tasks'
 import { getEventBudgets } from '@/lib/actions/budgets'
+import { getNotes } from '@/lib/actions/notes'
 import type { RoleLabels } from '@/types/database'
 
 export async function GET() {
@@ -19,7 +20,7 @@ export async function GET() {
   const associationId = activeMembership.association_id
   const admin = createAdminClient()
 
-  const [stats, conversations, tasks, budgets, profileRow, associationRow, rolesRows] =
+  const [stats, conversations, tasks, budgets, profileRow, associationRow, rolesRows, notesResult] =
     await Promise.all([
       getDashboardStats(associationId),
       getConversations(associationId),
@@ -31,6 +32,7 @@ export async function GET() {
         .eq('id', associationId).single(),
       admin.from('association_memberships')
         .select('role').eq('association_id', associationId).eq('is_active', true),
+      getNotes(associationId),
     ])
 
   const firstName = profileRow.data?.full_name?.split(' ')[0] ?? ''
@@ -69,6 +71,9 @@ export async function GET() {
     tasks,
     budgets,
     conversations,
+    recentNotes: [...notesResult.notes]
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .slice(0, 5),
     userId: user.id,
     associationId,
     callerRole: activeMembership.role,

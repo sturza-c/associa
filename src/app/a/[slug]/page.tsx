@@ -56,7 +56,6 @@ export default async function PublicAssociationPage({ params }: Props) {
 
   if (!evErr && eventsData) upcomingEvents = eventsData
 
-  const foundedYear = new Date(assoc.created_at).getFullYear()
 
   return (
     <div className="min-h-screen bg-background">
@@ -101,8 +100,6 @@ export default async function PublicAssociationPage({ params }: Props) {
                   <Users className="h-3.5 w-3.5" />
                   <span>{memberCount ?? 0} membre{(memberCount ?? 0) > 1 ? 's' : ''}</span>
                 </span>
-                <span className="text-muted-foreground/30">·</span>
-                <span>Fondée en {foundedYear}</span>
               </div>
             </div>
           </div>
@@ -180,28 +177,6 @@ export default async function PublicAssociationPage({ params }: Props) {
           )}
         </section>
 
-        {/* Join CTA */}
-        <section className="rounded-2xl border border-border bg-card p-8 text-center space-y-3">
-          <h3 className="text-lg font-semibold">Rejoindre {assoc.name}</h3>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Vous souhaitez rejoindre l&apos;association ? Contactez un membre du bureau ou connectez-vous à votre compte.
-          </p>
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-colors"
-              style={{ backgroundColor: accent }}
-            >
-              Se connecter
-            </Link>
-            <Link
-              href="/register"
-              className="inline-flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm font-semibold hover:bg-foreground/5 transition-colors"
-            >
-              Créer un compte
-            </Link>
-          </div>
-        </section>
 
         {/* Footer */}
         <footer className="text-center text-xs text-muted-foreground/50 pb-4">
