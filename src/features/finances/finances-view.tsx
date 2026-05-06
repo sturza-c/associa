@@ -3,6 +3,7 @@
 import useSWR from 'swr'
 import { useAssociation } from '@/contexts/association-context'
 import { FinancesShell } from './finances-shell'
+import { FinancesSkeleton } from '@/components/ui/skeleton-layouts'
 import type { Role } from '@/types/database'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
@@ -10,7 +11,7 @@ const fetcher = (url: string) => fetch(url).then(r => r.json())
 interface Props {
   associationId: string
   callerRole: Role
-  initialData: Record<string, unknown>
+  initialData?: Record<string, unknown>
 }
 
 export function FinancesView({ associationId, callerRole, initialData }: Props) {
@@ -21,6 +22,8 @@ export function FinancesView({ associationId, callerRole, initialData }: Props) 
     fetcher,
     { fallbackData: initialData },
   )
+
+  if (!data) return <FinancesSkeleton />
 
   return (
     <FinancesShell

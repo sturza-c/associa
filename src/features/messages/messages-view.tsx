@@ -2,6 +2,7 @@
 
 import useSWR from 'swr'
 import { MessagesClient } from './messages-client'
+import { MessagesSkeleton } from '@/components/ui/skeleton-layouts'
 import type { Role } from '@/types/database'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
@@ -10,7 +11,7 @@ interface Props {
   associationId: string
   callerRole: Role
   currentUserId: string
-  initialData: Record<string, unknown>
+  initialData?: Record<string, unknown>
 }
 
 export function MessagesView({ associationId, callerRole, currentUserId, initialData }: Props) {
@@ -19,6 +20,8 @@ export function MessagesView({ associationId, callerRole, currentUserId, initial
     fetcher,
     { fallbackData: initialData },
   )
+
+  if (!data) return <MessagesSkeleton />
 
   return (
     <MessagesClient

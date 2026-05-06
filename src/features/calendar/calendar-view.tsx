@@ -2,6 +2,7 @@
 
 import useSWR from 'swr'
 import { CalendarClient, ymd, getMonday, type ViewType } from './calendar-client'
+import { CalendarSkeleton } from '@/components/ui/skeleton-layouts'
 import type { Role } from '@/types/database'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
@@ -30,7 +31,7 @@ interface Props {
   anchor: string          // YYYY-MM-DD
   associationId: string
   callerRole: Role
-  initialData: { items: unknown[]; token: string | null }
+  initialData?: { items: unknown[]; token: string | null }
 }
 
 export function CalendarView({ view, anchor, associationId, callerRole, initialData }: Props) {
@@ -46,6 +47,8 @@ export function CalendarView({ view, anchor, associationId, callerRole, initialD
     fetcher,
     { fallbackData: initialData },
   )
+
+  if (!data) return <CalendarSkeleton />
 
   return (
     <CalendarClient

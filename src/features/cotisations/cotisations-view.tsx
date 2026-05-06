@@ -11,7 +11,7 @@ const fetcher = (url: string) => fetch(url).then(r => r.json())
 interface Props {
   associationId: string
   callerRole: Role
-  initialData: Record<string, unknown>
+  initialData?: Record<string, unknown>
 }
 
 export function CotisationsView({ associationId, callerRole, initialData }: Props) {
@@ -26,9 +26,7 @@ export function CotisationsView({ associationId, callerRole, initialData }: Prop
   )
 
   if (!data) return (
-    <div className="h-full flex items-center justify-center">
-      <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-    </div>
+    <div className="p-8 text-center text-muted-foreground">Chargement...</div>
   )
 
   return (

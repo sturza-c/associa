@@ -2,6 +2,7 @@
 
 import useSWR from 'swr'
 import { MembersClient } from './members-client'
+import { MembersSkeleton } from '@/components/ui/skeleton-layouts'
 import type { AssociationTitle, Role } from '@/types/database'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
@@ -10,7 +11,7 @@ interface Props {
   associationId: string
   callerRole: Role
   currentUserId: string
-  initialData: Record<string, unknown>
+  initialData?: Record<string, unknown>
 }
 
 export function MembersView({ associationId, callerRole, currentUserId, initialData }: Props) {
@@ -19,6 +20,8 @@ export function MembersView({ associationId, callerRole, currentUserId, initialD
     fetcher,
     { fallbackData: initialData },
   )
+
+  if (!data) return <MembersSkeleton />
 
   return (
     <MembersClient

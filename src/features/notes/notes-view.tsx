@@ -2,13 +2,14 @@
 
 import useSWR from 'swr'
 import { NotesShell } from './notes-shell'
+import { NotesSkeleton } from '@/components/ui/skeleton-layouts'
 import type { Note, NoteFolder } from '@/types/database'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 interface Props {
   associationId: string
-  initialData: { notes: Note[]; folders: NoteFolder[] }
+  initialData?: { notes: Note[]; folders: NoteFolder[] }
   callerUserId: string
 }
 
@@ -18,6 +19,8 @@ export function NotesView({ associationId, initialData, callerUserId }: Props) {
     fetcher,
     { fallbackData: initialData },
   )
+
+  if (!data) return <NotesSkeleton />
 
   return (
     <NotesShell
