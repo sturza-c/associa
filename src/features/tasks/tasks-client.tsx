@@ -12,6 +12,7 @@ import {
   Search, Users, User, Plus, Pencil, X, FolderOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/ui/empty-state'
 
 const STATUSES: { value: TaskStatus; label: string; icon: React.ElementType }[] = [
   { value: 'todo', label: 'À faire', icon: Circle },
@@ -760,16 +761,15 @@ export function TasksClient({ tasks, members, groups, associationId, callerRole,
 
         {/* Task list */}
         {filtered.length === 0 ? (
-          <div className="rounded-2xl border border-white/7 bg-white/[0.035] backdrop-blur-md flex flex-col items-center justify-center py-16 text-center">
-            <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
-              <CheckSquare className="h-5 w-5 text-muted-foreground/50" />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {query ? 'Aucune tâche ne correspond' : activeStatus === 'done' ? 'Aucune tâche terminée' : 'Aucune tâche dans ce groupe'}
-            </p>
+          <div className="rounded-2xl border border-border bg-card">
+            <EmptyState
+              variant="tasks"
+              title={query ? 'Aucune tâche ne correspond' : activeStatus === 'done' ? 'Aucune tâche terminée' : 'Aucune tâche dans ce groupe'}
+              description={!query && activeStatus !== 'done' ? 'Créez une tâche pour ce groupe et attribuez-la à un membre.' : undefined}
+            />
           </div>
         ) : (
-          <div className="rounded-2xl border border-white/7 bg-white/[0.035] backdrop-blur-md overflow-hidden divide-y divide-white/5">
+          <div className="rounded-2xl border border-border bg-card overflow-hidden divide-y divide-border">
             {filtered.map(task => (
               <TaskRow
                 key={task.id}
@@ -900,27 +900,26 @@ export function TasksClient({ tasks, members, groups, associationId, callerRole,
 
           {/* Task list */}
           {filtered.length === 0 ? (
-            <div className="rounded-2xl border border-white/7 bg-white/[0.035] backdrop-blur-md flex flex-col items-center justify-center py-16 text-center">
-              <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
-                <CheckSquare className="h-5 w-5 text-muted-foreground/50" />
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {query
-                  ? 'Aucune tâche ne correspond'
-                  : activeStatus === 'done'
-                    ? 'Aucune tâche terminée'
-                    : scope === 'personal'
-                      ? 'Aucune tâche personnelle'
-                      : 'Tout est à jour'}
-              </p>
-              {!query && scope === 'personal' && activeStatus === 'all' && (
-                <p className="text-xs text-muted-foreground/60 mt-1">
-                  Créez une tâche personnelle pour vous organiser.
-                </p>
-              )}
+            <div className="rounded-2xl border border-border bg-card">
+              <EmptyState
+                variant="tasks"
+                title={
+                  query ? 'Aucune tâche ne correspond'
+                  : activeStatus === 'done' ? 'Aucune tâche terminée'
+                  : scope === 'personal' ? 'Aucune tâche personnelle'
+                  : 'Tout est à jour'
+                }
+                description={
+                  !query && scope === 'personal' && activeStatus === 'all'
+                    ? 'Créez une tâche personnelle pour vous organiser.'
+                    : !query && activeStatus === 'all'
+                    ? 'Toutes vos tâches sont terminées. Bravo !'
+                    : undefined
+                }
+              />
             </div>
           ) : (
-            <div className="rounded-2xl border border-white/7 bg-white/[0.035] backdrop-blur-md overflow-hidden divide-y divide-white/5">
+            <div className="rounded-2xl border border-border bg-card overflow-hidden divide-y divide-border">
               {filtered.map(task => (
                 <TaskRow
                   key={task.id}

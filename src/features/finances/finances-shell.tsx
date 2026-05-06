@@ -20,6 +20,7 @@ import {
 import { cn } from '@/lib/utils'
 import { CollapsibleRail } from '@/components/collapsible-rail'
 import { exportFinancesCSV, exportFinancesPDF } from '@/lib/export'
+import { EmptyState } from '@/components/ui/empty-state'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -875,17 +876,21 @@ function DossierDetailView({
 
       {/* Transaction list */}
       {sorted.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <Wallet className="h-8 w-8 text-muted-foreground/20 mb-4" />
-          <p className="text-sm text-muted-foreground font-heading italic">Aucune entrée dans ce dossier</p>
-          {canManage && (
-            <button onClick={onAdd} className="mt-4 text-xs text-muted-foreground/60 hover:text-foreground transition-colors">
-              + Ajouter la première entrée
+        <EmptyState
+          variant="finances"
+          title="Aucune entrée dans ce dossier"
+          description={canManage ? 'Enregistrez une recette ou une dépense.' : undefined}
+          action={canManage ? (
+            <button
+              onClick={onAdd}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" /> Ajouter la première entrée
             </button>
-          )}
-        </div>
+          ) : undefined}
+        />
       ) : (
-        <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
+        <div className="rounded-2xl border border-border bg-card overflow-hidden">
           {/* Table header */}
           <div className="grid grid-cols-[80px_60px_1fr_120px_8px] gap-4 px-5 py-2.5 border-b border-white/6">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Date</span>

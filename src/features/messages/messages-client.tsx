@@ -9,6 +9,7 @@ import type { MembershipWithProfile, Role } from '@/types/database'
 import { Send, MessageSquare, Paperclip, X, FileText, Image as ImageIcon, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CollapsibleRail } from '@/components/collapsible-rail'
+import { EmptyState } from '@/components/ui/empty-state'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
@@ -233,15 +234,14 @@ export function MessagesClient({ conversations, members, associationId, currentU
 
         <div className="flex-1 overflow-y-auto">
           {conversations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-              <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center mb-3">
-                <MessageSquare className="h-5 w-5 text-muted-foreground/50" />
-              </div>
-              <p className="text-sm text-muted-foreground">Aucune conversation</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Démarrez-en une avec un membre</p>
-            </div>
+            <EmptyState
+              variant="messages"
+              title="Aucune conversation"
+              description="Démarrez-en une avec un membre de votre équipe."
+              size="sm"
+            />
           ) : (
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-border">
               {conversations.map(conv => {
                 const title = getConversationTitle(conv, currentUserId)
                 const others = (conv.participants ?? []).filter(p => p.user_id !== currentUserId)
@@ -254,10 +254,10 @@ export function MessagesClient({ conversations, members, associationId, currentU
                     onClick={() => setActiveConv(conv)}
                     className={cn(
                       'w-full text-left px-4 py-3.5 flex items-center gap-3 transition-colors',
-                      isActive ? 'bg-white/8' : 'hover:bg-white/4'
+                      isActive ? 'bg-muted' : 'hover:bg-muted/50'
                     )}
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-white/15 to-white/5 text-xs font-semibold ring-1 ring-white/10">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold ring-1 ring-border">
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -361,15 +361,11 @@ export function MessagesClient({ conversations, members, associationId, currentU
                   Chargement...
                 </div>
               ) : messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center mb-3">
-                    <MessageSquare className="h-5 w-5 text-muted-foreground/50" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">Aucun message</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1 font-heading italic">
-                    Soyez le premier à écrire
-                  </p>
-                </div>
+                <EmptyState
+                  variant="messages"
+                  title="Aucun message"
+                  description="Soyez le premier à écrire dans cette conversation."
+                />
               ) : (
                 messages.map((msg, idx) => {
                   const isMe = msg.sender_id === currentUserId
@@ -482,15 +478,11 @@ export function MessagesClient({ conversations, members, associationId, currentU
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="h-14 w-14 rounded-2xl bg-white/5 flex items-center justify-center mb-4 mx-auto ring-1 ring-white/8">
-                <MessageSquare className="h-6 w-6 text-muted-foreground/50" />
-              </div>
-              <p className="text-sm font-medium">Aucune conversation sélectionnée</p>
-              <p className="text-xs text-muted-foreground mt-1 font-heading italic">
-                Choisissez-en une dans la liste
-              </p>
-            </div>
+            <EmptyState
+              variant="messages"
+              title="Aucune conversation sélectionnée"
+              description="Choisissez une conversation dans la liste ou créez-en une nouvelle."
+            />
           </div>
         )}
       </div>

@@ -1,7 +1,2 @@
-export default function Loading() {
-  return (
-    <div className="h-full flex items-center justify-center text-muted-foreground/40 text-sm">
-      Chargement...
-    </div>
-  )
-}
+import { NotesSkeleton } from '@/components/ui/skeleton-layouts'
+export default function NotesLoading() { return <NotesSkeleton /> }

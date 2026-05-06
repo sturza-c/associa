@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CollapsibleRail } from '@/components/collapsible-rail'
+import { EmptyState } from '@/components/ui/empty-state'
 
 const COLOR_PRESETS = [
   '#60a5fa', '#34d399', '#a78bfa', '#f472b6',
@@ -320,16 +321,12 @@ export function DocumentsClient({
               ))}
             </div>
             {filtered.length === 0 && (
-              <div className="flex flex-col items-center pt-6 pb-16 text-center">
-                {query ? (
-                  <>
-                    <FolderOpen className="h-6 w-6 text-muted-foreground/20 mb-3" />
-                    <p className="text-sm text-muted-foreground/60 font-heading italic">Aucun document ne correspond</p>
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground/40 font-heading italic">Ce dossier est vide</p>
-                )}
-              </div>
+              <EmptyState
+                variant="documents"
+                title={query ? 'Aucun document ne correspond' : 'Ce dossier est vide'}
+                description={query ? 'Essayez un autre nom de fichier.' : 'Déposez ou importez un fichier pour commencer.'}
+                size="sm"
+              />
             )}
           </div>
         </div>

@@ -17,6 +17,7 @@ import {
 import { MoreHorizontal, UserMinus, ShieldCheck, Search, Users, Mail, X, Send, Copy, Check, Download, FileText, FileSpreadsheet } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { exportMembersCSV, exportMembersPDF } from '@/lib/export'
+import { EmptyState } from '@/components/ui/empty-state'
 
 const ROLE_LABELS: Record<Role, string> = {
   president: 'Président·e',
@@ -375,13 +376,12 @@ export function MembersClient({
 
         {/* Empty state */}
         {filteredMembers.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-card backdrop-blur-md flex flex-col items-center justify-center py-16 text-center">
-            <div className="h-12 w-12 rounded-2xl bg-foreground/5 flex items-center justify-center mb-4">
-              <Users className="h-5 w-5 text-muted-foreground/50" />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {query ? 'Aucun membre ne correspond' : 'Aucun membre pour l\'instant'}
-            </p>
+          <div className="rounded-2xl border border-border bg-card">
+            <EmptyState
+              variant="members"
+              title={query ? 'Aucun membre ne correspond' : 'Aucun membre pour l\'instant'}
+              description={!query ? 'Invitez votre équipe à rejoindre l\'espace.' : 'Essayez un autre nom ou email.'}
+            />
           </div>
         ) : (
           <div className="space-y-6">

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CollapsibleRail } from '@/components/collapsible-rail'
+import { EmptyState } from '@/components/ui/empty-state'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -294,17 +295,20 @@ function EventsOverview({ events, upcoming, canManage, onSelect, onCreateClick }
         </div>
 
         {events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="h-14 w-14 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
-              <CalendarDays className="h-6 w-6 text-muted-foreground/40" />
-            </div>
-            <p className="text-sm text-muted-foreground font-heading italic">Aucun événement pour l'instant</p>
-            {canManage && (
-              <button onClick={onCreateClick} className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">
+          <EmptyState
+            variant="events"
+            title="Aucun événement pour l'instant"
+            description="Planifiez votre premier événement avec date, lieu et budget."
+            size="lg"
+            action={canManage ? (
+              <button
+                onClick={onCreateClick}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
                 <Plus className="h-4 w-4" /> Créer le premier événement
               </button>
-            )}
-          </div>
+            ) : undefined}
+          />
         ) : (
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
             {(upcoming.length > 0 ? upcoming : events.slice(0, 6)).map(ev => (
