@@ -157,7 +157,7 @@ export function FinancesShell({
   return (
     <div className="h-full flex flex-col">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-8 py-5 border-b border-white/6 shrink-0">
+      <div className="flex items-center justify-between px-8 py-5 border-b border-border shrink-0">
         <div className="flex items-center gap-4">
           {(activeCategoryId || activeBudgetId) && (
             <button
@@ -243,23 +243,23 @@ export function FinancesShell({
           <div className="overflow-y-auto h-full p-4 space-y-5">
 
             {/* Solde global mini */}
-            <div className="px-3 py-2 rounded-xl bg-white/[0.04] border border-white/6 space-y-1">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+            <div className="px-3 py-2 rounded-xl bg-muted/50 border border-border space-y-1">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Solde net
               </p>
-              <p className={cn('text-lg font-bold tabular-nums leading-none', balance < 0 ? 'text-red-300' : 'text-foreground')}>
+              <p className={cn('text-lg font-bold tabular-nums leading-none', balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-foreground')}>
                 {balance >= 0 ? '+' : ''}{fmt(balance)}
               </p>
               <div className="flex items-center gap-2 pt-0.5">
-                <span className="text-[10px] text-emerald-400/80 tabular-nums">+{fmt(totalIncome)}</span>
-                <span className="text-white/20">·</span>
-                <span className="text-[10px] text-red-400/80 tabular-nums">−{fmt(totalExpense)}</span>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 tabular-nums">+{fmt(totalIncome)}</span>
+                <span className="text-border">·</span>
+                <span className="text-[10px] text-red-600 dark:text-red-400 tabular-nums">−{fmt(totalExpense)}</span>
               </div>
             </div>
 
             {/* Vue globale */}
             <div>
-              <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Vue</p>
+              <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Vue</p>
               <nav className="space-y-0.5">
                 <RailRow
                   icon={<Inbox className="h-3.5 w-3.5 text-muted-foreground" />}
@@ -272,7 +272,7 @@ export function FinancesShell({
 
             {/* Dossiers */}
             <div>
-              <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Dossiers</p>
+              <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Dossiers</p>
               <nav className="space-y-0.5">
                 {categories.map(cat => {
                   const catBalance = finances
@@ -311,7 +311,7 @@ export function FinancesShell({
             {/* Budgets */}
             <div>
               <div className="flex items-center justify-between px-3 pb-2">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Budgets</p>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Budgets</p>
                 {canManage && <CreateBudgetDialog associationId={associationId} onSuccess={onRefresh} />}
               </div>
               <nav className="space-y-0.5">
@@ -407,21 +407,24 @@ function OverviewView({
           label="Solde net"
           amount={balance}
           sign={balance >= 0 ? '+' : ''}
-          colorClass={balance < 0 ? 'text-red-300' : 'text-foreground'}
+          variant="balance"
+          isNegative={balance < 0}
           subLabel={`${finances.length} entrée${finances.length !== 1 ? 's' : ''}`}
         />
         <BalanceTile
           label="Total recettes"
           amount={totalIncome}
           sign="+"
-          colorClass="text-emerald-300"
+          variant="income"
+          isNegative={false}
           subLabel={`${finances.filter(f => f.type === 'income').length} recette${finances.filter(f => f.type === 'income').length !== 1 ? 's' : ''}`}
         />
         <BalanceTile
           label="Total dépenses"
           amount={totalExpense}
           sign="−"
-          colorClass="text-red-300"
+          variant="expense"
+          isNegative={false}
           subLabel={`${finances.filter(f => f.type === 'expense').length} dépense${finances.filter(f => f.type === 'expense').length !== 1 ? 's' : ''}`}
         />
       </div>
@@ -487,8 +490,8 @@ function OverviewView({
           <h2 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.15em]">
             Entrées récentes
           </h2>
-          <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
-            <div className="divide-y divide-white/5">
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="divide-y divide-border">
               {recent.map(entry => (
                 <TransactionRow
                   key={entry.id}
@@ -508,16 +511,34 @@ function OverviewView({
 
 // ─── Balance tile ─────────────────────────────────────────────────────────────
 
-function BalanceTile({ label, amount, sign, colorClass, subLabel }: {
-  label: string; amount: number; sign: string; colorClass: string; subLabel: string
+function BalanceTile({ label, amount, sign, variant, isNegative, subLabel }: {
+  label: string
+  amount: number
+  sign: string
+  variant: 'balance' | 'income' | 'expense'
+  isNegative: boolean
+  subLabel: string
 }) {
+  const topBarColor =
+    variant === 'income' ? '#10b981' :
+    variant === 'expense' ? '#ef4444' :
+    isNegative ? '#ef4444' : '#10b981'
+
+  const amountClass =
+    variant === 'income' ? 'text-emerald-600 dark:text-emerald-400' :
+    variant === 'expense' ? 'text-red-600 dark:text-red-400' :
+    isNegative ? 'text-red-600 dark:text-red-400' : 'text-foreground'
+
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">{label}</p>
-      <p className={cn('text-2xl font-bold tabular-nums leading-none', colorClass)}>
-        {sign}{fmt(amount)}
-      </p>
-      <p className="text-[11px] text-muted-foreground/60 mt-1.5">{subLabel}</p>
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <div className="h-1 w-full" style={{ backgroundColor: topBarColor }} />
+      <div className="p-5">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">{label}</p>
+        <p className={cn('text-2xl font-bold tabular-nums leading-none', amountClass)}>
+          {sign}{fmt(amount)}
+        </p>
+        <p className="text-[11px] text-muted-foreground/60 mt-1.5">{subLabel}</p>
+      </div>
     </div>
   )
 }
@@ -562,9 +583,11 @@ function DossierCard({
   }
 
   const isPositive = balance >= 0
+  const total = income + expense
+  const incomeRatio = total > 0 ? (income / total) * 100 : 0
 
   return (
-    <div className="group relative flex flex-col rounded-2xl border border-white/8 bg-white/[0.03] overflow-hidden hover:border-white/15 hover:bg-white/[0.05] transition-all">
+    <div className="group relative flex flex-col rounded-2xl border border-border bg-card overflow-hidden hover:border-border/80 hover:bg-muted/40 transition-all">
       {/* Color top bar */}
       <div className="h-1 w-full" style={{ backgroundColor: category.color }} />
 
@@ -589,7 +612,7 @@ function DossierCard({
                   if (e.key === 'Escape') { setName(category.name); setEditing(false) }
                 }}
                 onClick={e => e.stopPropagation()}
-                className="flex-1 bg-white/5 border border-white/15 rounded-lg px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-white/20"
+                className="flex-1 bg-muted border border-border rounded-lg px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
                 maxLength={60}
               />
             ) : (
@@ -606,7 +629,7 @@ function DossierCard({
             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
               <button
                 onClick={e => { e.stopPropagation(); setEditing(true) }}
-                className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-muted-foreground hover:text-foreground"
+                className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
               >
                 <Pencil className="h-3 w-3" />
               </button>
@@ -628,7 +651,7 @@ function DossierCard({
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70 mb-1">
             Solde du dossier
           </p>
-          <p className={cn('text-3xl font-bold tabular-nums leading-none', isPositive ? 'text-foreground' : 'text-red-300')}>
+          <p className={cn('text-3xl font-bold tabular-nums leading-none', isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
             {isPositive ? '+' : '−'}{fmt(Math.abs(balance))}
           </p>
         </div>
@@ -638,14 +661,22 @@ function DossierCard({
           className="grid grid-cols-2 gap-2 cursor-pointer"
           onClick={onClick}
         >
-          <div className="rounded-xl bg-emerald-500/8 border border-emerald-500/15 px-3 py-2">
-            <p className="text-[10px] text-emerald-400/70 font-medium uppercase tracking-wider mb-0.5">Recettes</p>
-            <p className="text-sm font-semibold tabular-nums text-emerald-300">+{fmt(income)}</p>
+          <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+            <p className="text-[10px] text-emerald-700 dark:text-emerald-300 font-medium uppercase tracking-wider mb-0.5 opacity-70">Recettes</p>
+            <p className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">+{fmt(income)}</p>
           </div>
-          <div className="rounded-xl bg-red-500/8 border border-red-500/15 px-3 py-2">
-            <p className="text-[10px] text-red-400/70 font-medium uppercase tracking-wider mb-0.5">Dépenses</p>
-            <p className="text-sm font-semibold tabular-nums text-red-300">−{fmt(expense)}</p>
+          <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-2">
+            <p className="text-[10px] text-red-700 dark:text-red-300 font-medium uppercase tracking-wider mb-0.5 opacity-70">Dépenses</p>
+            <p className="text-sm font-semibold tabular-nums text-red-700 dark:text-red-300">−{fmt(expense)}</p>
           </div>
+        </div>
+
+        {/* Income/expense ratio bar */}
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden" onClick={onClick}>
+          <div
+            className="h-full bg-emerald-500 rounded-full transition-all"
+            style={{ width: `${incomeRatio}%` }}
+          />
         </div>
 
         {/* Footer */}
@@ -659,7 +690,7 @@ function DossierCard({
           {canManage && (
             <button
               onClick={e => { e.stopPropagation(); onAdd() }}
-              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors border border-white/8"
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors border border-border"
             >
               <Plus className="h-3 w-3" />
               Ajouter
@@ -672,14 +703,14 @@ function DossierCard({
       {colorOpen && (
         <div
           ref={colorRef}
-          className="absolute left-4 top-12 z-20 flex flex-wrap gap-1.5 p-2 rounded-xl border border-white/10 bg-popover/95 backdrop-blur-2xl shadow-xl w-[160px]"
+          className="absolute left-4 top-12 z-20 flex flex-wrap gap-1.5 p-2 rounded-xl border border-border bg-popover/95 backdrop-blur-2xl shadow-xl w-[160px]"
         >
           {COLOR_PRESETS.map(c => (
             <button
               key={c}
               onClick={() => { onRecolor(c); setColorOpen(false) }}
               className={cn('h-6 w-6 rounded-full transition-transform hover:scale-110 ring-1',
-                c.toLowerCase() === category.color.toLowerCase() ? 'ring-white' : 'ring-white/15')}
+                c.toLowerCase() === category.color.toLowerCase() ? 'ring-foreground' : 'ring-border')}
               style={{ backgroundColor: c }}
             />
           ))}
@@ -701,8 +732,8 @@ function UncategorizedCard({ finances, canManage, onAdd }: {
   const balance = income - expense
 
   return (
-    <div className="group flex flex-col rounded-2xl border border-white/6 bg-white/[0.02] overflow-hidden opacity-70 hover:opacity-100 transition-all">
-      <div className="h-1 w-full bg-white/10" />
+    <div className="group flex flex-col rounded-2xl border border-border bg-card overflow-hidden opacity-70 hover:opacity-100 transition-all">
+      <div className="h-1 w-full bg-muted-foreground/20" />
       <div className="p-5 flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <FolderOpen className="h-3.5 w-3.5 text-muted-foreground/50" />
@@ -710,18 +741,18 @@ function UncategorizedCard({ finances, canManage, onAdd }: {
         </div>
         <div>
           <p className="text-[10px] text-muted-foreground/60 font-semibold uppercase tracking-wider mb-1">Solde</p>
-          <p className={cn('text-2xl font-bold tabular-nums', balance >= 0 ? 'text-foreground/70' : 'text-red-300/70')}>
+          <p className={cn('text-2xl font-bold tabular-nums', balance >= 0 ? 'text-foreground/70' : 'text-red-600/70 dark:text-red-400/70')}>
             {balance >= 0 ? '+' : '−'}{fmt(Math.abs(balance))}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/10 px-3 py-2">
-            <p className="text-[10px] text-emerald-400/60 font-medium uppercase tracking-wider mb-0.5">Recettes</p>
-            <p className="text-xs font-semibold tabular-nums text-emerald-300/70">+{fmt(income)}</p>
+          <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+            <p className="text-[10px] text-emerald-700 dark:text-emerald-300 font-medium uppercase tracking-wider mb-0.5 opacity-60">Recettes</p>
+            <p className="text-xs font-semibold tabular-nums text-emerald-700/70 dark:text-emerald-300/70">+{fmt(income)}</p>
           </div>
-          <div className="rounded-xl bg-red-500/5 border border-red-500/10 px-3 py-2">
-            <p className="text-[10px] text-red-400/60 font-medium uppercase tracking-wider mb-0.5">Dépenses</p>
-            <p className="text-xs font-semibold tabular-nums text-red-300/70">−{fmt(expense)}</p>
+          <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-3 py-2">
+            <p className="text-[10px] text-red-700 dark:text-red-300 font-medium uppercase tracking-wider mb-0.5 opacity-60">Dépenses</p>
+            <p className="text-xs font-semibold tabular-nums text-red-700/70 dark:text-red-300/70">−{fmt(expense)}</p>
           </div>
         </div>
         <div className="flex items-center justify-between pt-1">
@@ -729,7 +760,7 @@ function UncategorizedCard({ finances, canManage, onAdd }: {
           {canManage && (
             <button
               onClick={onAdd}
-              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors border border-white/8"
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors border border-border"
             >
               <Plus className="h-3 w-3" />
               Ajouter
@@ -756,7 +787,7 @@ function NewDossierCard({ existingCount, onCreate }: { existingCount: number; on
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-transparent hover:bg-white/[0.03] hover:border-white/30 transition-all min-h-[200px] gap-2 text-muted-foreground/50 hover:text-muted-foreground"
+        className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border hover:bg-muted/40 hover:border-border/80 transition-all min-h-[200px] gap-2 text-muted-foreground/50 hover:text-muted-foreground"
       >
         <Plus className="h-6 w-6" />
         <span className="text-sm font-medium">Nouveau dossier</span>
@@ -765,7 +796,7 @@ function NewDossierCard({ existingCount, onCreate }: { existingCount: number; on
   }
 
   return (
-    <div className="flex flex-col rounded-2xl border border-white/15 bg-white/[0.03] overflow-hidden">
+    <div className="flex flex-col rounded-2xl border border-border bg-card overflow-hidden">
       <div className="h-1 w-full" style={{ backgroundColor: color }} />
       <div className="p-5 space-y-4">
         <div className="flex items-center gap-2">
@@ -791,7 +822,7 @@ function NewDossierCard({ existingCount, onCreate }: { existingCount: number; on
             <button
               key={c}
               onClick={() => setColor(c)}
-              className={cn('h-5 w-5 rounded-full transition-transform hover:scale-110 ring-1', c === color ? 'ring-white' : 'ring-white/15')}
+              className={cn('h-5 w-5 rounded-full transition-transform hover:scale-110 ring-1', c === color ? 'ring-foreground' : 'ring-border')}
               style={{ backgroundColor: c }}
             />
           ))}
@@ -799,7 +830,7 @@ function NewDossierCard({ existingCount, onCreate }: { existingCount: number; on
         <div className="flex items-center justify-end gap-2">
           <button
             onClick={() => { setName(''); setOpen(false) }}
-            className="h-8 px-3 text-xs rounded-lg hover:bg-white/8 text-muted-foreground transition-colors flex items-center gap-1"
+            className="h-8 px-3 text-xs rounded-lg hover:bg-muted text-muted-foreground transition-colors flex items-center gap-1"
           >
             <X className="h-3 w-3" /> Annuler
           </button>
@@ -839,23 +870,23 @@ function DossierDetailView({
   return (
     <div className="px-8 py-6 space-y-6">
       {/* Dossier balance header */}
-      <div className="rounded-2xl border border-white/8 bg-white/[0.03] overflow-hidden">
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="h-1" style={{ backgroundColor: category.color }} />
         <div className="p-6 grid grid-cols-3 gap-6">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Solde du dossier</p>
-            <p className={cn('text-3xl font-bold tabular-nums', balance < 0 ? 'text-red-300' : 'text-foreground')}>
+            <p className={cn('text-3xl font-bold tabular-nums', balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-foreground')}>
               {balance >= 0 ? '+' : '−'}{fmt(Math.abs(balance))}
             </p>
           </div>
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-400/70 mb-1.5">Recettes</p>
-            <p className="text-2xl font-bold tabular-nums text-emerald-300">+{fmt(income)}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400 mb-1.5">Recettes</p>
+            <p className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">+{fmt(income)}</p>
             <p className="text-[11px] text-muted-foreground/60 mt-1">{finances.filter(f => f.type === 'income').length} entrée{finances.filter(f => f.type === 'income').length !== 1 ? 's' : ''}</p>
           </div>
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-red-400/70 mb-1.5">Dépenses</p>
-            <p className="text-2xl font-bold tabular-nums text-red-300">−{fmt(expense)}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-red-600 dark:text-red-400 mb-1.5">Dépenses</p>
+            <p className="text-2xl font-bold tabular-nums text-red-600 dark:text-red-400">−{fmt(expense)}</p>
             <p className="text-[11px] text-muted-foreground/60 mt-1">{finances.filter(f => f.type === 'expense').length} entrée{finances.filter(f => f.type === 'expense').length !== 1 ? 's' : ''}</p>
           </div>
         </div>
@@ -866,7 +897,7 @@ function DossierDetailView({
         <div className="flex justify-end">
           <button
             onClick={onAdd}
-            className="inline-flex items-center gap-2 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 px-4 py-2 text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl bg-muted hover:bg-muted/80 border border-border px-4 py-2 text-sm font-medium transition-colors"
           >
             <Plus className="h-4 w-4" />
             Ajouter une entrée
@@ -892,14 +923,14 @@ function DossierDetailView({
       ) : (
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
           {/* Table header */}
-          <div className="grid grid-cols-[80px_60px_1fr_120px_8px] gap-4 px-5 py-2.5 border-b border-white/6">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Date</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Type</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Libellé</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50 text-right">Montant</span>
+          <div className="grid grid-cols-[80px_60px_1fr_120px_8px] gap-4 px-5 py-2.5 border-b border-border">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Date</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Type</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Libellé</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-right">Montant</span>
             <span />
           </div>
-          <div className="divide-y divide-white/4">
+          <div className="divide-y divide-border">
             {sorted.map(entry => (
               <TransactionRow
                 key={entry.id}
@@ -937,27 +968,29 @@ function TransactionRow({ entry, category, canDelete, onDelete, compact = false 
 
   if (compact) {
     return (
-      <div className="group grid grid-cols-[80px_60px_1fr_120px_28px] gap-4 items-center px-5 py-3 hover:bg-white/[0.03] transition-colors">
+      <div className="group grid grid-cols-[80px_60px_1fr_120px_28px] gap-4 items-center px-5 py-3 hover:bg-muted/40 transition-colors">
         <span className="text-[11px] tabular-nums text-muted-foreground/70">{fmtShort(entry.date)}</span>
         <span className={cn(
           'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide',
-          isIncome ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+          isIncome
+            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+            : 'bg-red-500/10 text-red-700 dark:text-red-300'
         )}>
           {isIncome ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-          {isIncome ? '+' : '−'}
+          {isIncome ? 'Recette' : 'Dépense'}
         </span>
         <div className="min-w-0">
           <p className="text-sm truncate">{entry.label}</p>
           {entry.description && <p className="text-[11px] text-muted-foreground/60 truncate">{entry.description}</p>}
         </div>
-        <span className={cn('text-sm font-semibold tabular-nums text-right', isIncome ? 'text-emerald-300' : 'text-red-300')}>
+        <span className={cn('text-sm font-semibold tabular-nums text-right', isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
           {isIncome ? '+' : '−'}{fmt(entry.amount)}
         </span>
         {canDelete ? (
           <button
             onClick={handleDelete}
             disabled={deleting}
-            className="opacity-0 group-hover:opacity-100 flex h-6 w-6 items-center justify-center rounded-md hover:bg-red-500/20 text-muted-foreground/50 hover:text-red-300 transition-all"
+            className="opacity-0 group-hover:opacity-100 flex h-6 w-6 items-center justify-center rounded-md hover:bg-red-500/20 text-muted-foreground/50 hover:text-red-600 dark:hover:text-red-400 transition-all"
           >
             <Trash2 className="h-3 w-3" />
           </button>
@@ -968,10 +1001,12 @@ function TransactionRow({ entry, category, canDelete, onDelete, compact = false 
 
   // Non-compact (overview recent list)
   return (
-    <div className="group flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.03] transition-colors">
+    <div className="group flex items-center gap-4 px-5 py-3.5 hover:bg-muted/40 transition-colors">
       <span className={cn(
         'shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium uppercase tracking-wide',
-        isIncome ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+        isIncome
+          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+          : 'bg-red-500/10 text-red-700 dark:text-red-300'
       )}>
         {isIncome ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
         {isIncome ? 'Recette' : 'Dépense'}
@@ -991,14 +1026,14 @@ function TransactionRow({ entry, category, canDelete, onDelete, compact = false 
           )}
         </div>
       </div>
-      <span className={cn('text-sm font-semibold tabular-nums shrink-0', isIncome ? 'text-emerald-300' : 'text-red-300')}>
+      <span className={cn('text-sm font-semibold tabular-nums shrink-0', isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
         {isIncome ? '+' : '−'}{fmt(entry.amount)}
       </span>
       {canDelete && (
         <button
           onClick={handleDelete}
           disabled={deleting}
-          className="opacity-0 group-hover:opacity-100 shrink-0 flex h-7 w-7 items-center justify-center rounded-lg hover:bg-red-500/20 text-muted-foreground/50 hover:text-red-300 transition-all"
+          className="opacity-0 group-hover:opacity-100 shrink-0 flex h-7 w-7 items-center justify-center rounded-lg hover:bg-red-500/20 text-muted-foreground/50 hover:text-red-600 dark:hover:text-red-400 transition-all"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -1018,7 +1053,7 @@ function RailRow({ icon, label, active, onClick, dim }: {
       onClick={onClick}
       className={cn(
         'w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors text-left',
-        active ? 'bg-white/8 text-foreground' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground',
+        active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
         dim && 'opacity-60'
       )}
     >
@@ -1049,7 +1084,7 @@ function CategoryRailItem({ category, balance, active, canManage, onSelect, onRe
   return (
     <div className={cn(
       'group relative flex items-center gap-2 rounded-lg pl-3 pr-1 py-2 text-sm transition-colors',
-      active ? 'bg-white/8 text-foreground' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+      active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
     )}>
       <span className="shrink-0 h-2 w-2 rounded-full" style={{ backgroundColor: category.color }} />
       {editing ? (
@@ -1062,21 +1097,21 @@ function CategoryRailItem({ category, balance, active, canManage, onSelect, onRe
             if (e.key === 'Enter') { e.preventDefault(); commit() }
             if (e.key === 'Escape') { setName(category.name); setEditing(false) }
           }}
-          className="flex-1 bg-transparent text-sm outline-none border-b border-white/20 pb-0.5"
+          className="flex-1 bg-transparent text-sm outline-none border-b border-border pb-0.5"
           maxLength={60}
         />
       ) : (
         <button onClick={onSelect} className="flex-1 truncate text-left">{category.name}</button>
       )}
       {!editing && (
-        <span className={cn('text-[10px] tabular-nums shrink-0 mr-1', balance >= 0 ? 'text-emerald-400/60' : 'text-red-400/60')}>
+        <span className={cn('text-[10px] tabular-nums shrink-0 mr-1', balance >= 0 ? 'text-emerald-600 dark:text-emerald-400 opacity-60' : 'text-red-600 dark:text-red-400 opacity-60')}>
           {balance >= 0 ? '+' : '−'}{new Intl.NumberFormat('fr-CH', { maximumFractionDigits: 0 }).format(Math.abs(balance))}
         </span>
       )}
       {canManage && !editing && (
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
           <button onClick={e => { e.stopPropagation(); setEditing(true) }}
-            className="h-6 w-6 flex items-center justify-center rounded hover:bg-white/10 text-muted-foreground hover:text-foreground">
+            className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground">
             <Pencil className="h-3 w-3" />
           </button>
           <button onClick={e => { e.stopPropagation(); onDelete() }}
@@ -1109,7 +1144,7 @@ function NewCategoryInline({ onCreate, existingCount }: {
   if (!open) {
     return (
       <button onClick={() => setOpen(true)}
-        className="mt-2 w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors">
+        className="mt-2 w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
         <Plus className="h-3.5 w-3.5" />
         Nouveau dossier
       </button>
@@ -1117,7 +1152,7 @@ function NewCategoryInline({ onCreate, existingCount }: {
   }
 
   return (
-    <div className="mt-2 rounded-lg border border-white/10 bg-white/[0.03] p-2 space-y-2">
+    <div className="mt-2 rounded-lg border border-border bg-muted/50 p-2 space-y-2">
       <div className="flex items-center gap-2">
         <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
         <input
@@ -1136,13 +1171,13 @@ function NewCategoryInline({ onCreate, existingCount }: {
       <div className="flex flex-wrap gap-1">
         {COLOR_PRESETS.map(c => (
           <button key={c} onClick={() => setColor(c)}
-            className={cn('h-4 w-4 rounded-full transition-transform hover:scale-110 ring-1', c === color ? 'ring-white' : 'ring-white/15')}
+            className={cn('h-4 w-4 rounded-full transition-transform hover:scale-110 ring-1', c === color ? 'ring-foreground' : 'ring-border')}
             style={{ backgroundColor: c }} />
         ))}
       </div>
       <div className="flex items-center justify-end gap-1 pt-1">
         <button onClick={() => { setName(''); setOpen(false) }}
-          className="h-7 px-2 text-xs rounded-md hover:bg-white/5 text-muted-foreground transition-colors">
+          className="h-7 px-2 text-xs rounded-md hover:bg-muted text-muted-foreground transition-colors">
           <X className="h-3 w-3" />
         </button>
         <button onClick={commit}
