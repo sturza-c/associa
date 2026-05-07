@@ -1,30 +1,28 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getActiveMembership } from '@/lib/actions/active-association'
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const associationId = searchParams.get('associationId')
   const yearParam = searchParams.get('year')
 
   if (!associationId) return NextResponse.json({ error: 'Missing associationId' }, { status: 400 })
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Auth already verified by middleware
+  const userId = req.headers.get('x-user-id')
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Check membership
-  const { data: membership } = await supabase
+  const admin = createAdminClient()
+
+  // Verify membership (admin client — no extra auth roundtrip)
+  const { data: membership } = await admin
     .from('association_memberships')
     .select('role')
     .eq('association_id', associationId)
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('is_active', true)
     .single()
   if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-
-  const admin = createAdminClient()
 
   // Detect available years
   const { data: yearsData } = await admin
@@ -51,7 +49,6 @@ export async function GET(req: Request) {
       .select('id, membership_id, external_name, external_email, year, amount_due, amount_paid, paid_at, payment_method, notes, updated_at')
       .eq('association_id', associationId)
       .eq('year', year)
-
     if (!error) cotisations = data ?? []
   }
 

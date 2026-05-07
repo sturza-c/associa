@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getActiveMembership } from '@/lib/actions/active-association'
 import { getDashboardStats } from '@/lib/actions/dashboard'
@@ -9,10 +8,10 @@ import { getEventBudgets } from '@/lib/actions/budgets'
 import { getNotes } from '@/lib/actions/notes'
 import type { RoleLabels } from '@/types/database'
 
-export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function GET(req: NextRequest) {
+  // Auth already verified by middleware — no auth.getUser() roundtrip needed
+  const userId = req.headers.get('x-user-id')
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const activeMembership = await getActiveMembership()
   if (!activeMembership) return NextResponse.json({ error: 'No membership' }, { status: 403 })
@@ -26,7 +25,7 @@ export async function GET() {
       getConversations(associationId),
       getTasks(associationId),
       getEventBudgets(associationId),
-      admin.from('user_profiles').select('full_name').eq('id', user.id).single(),
+      admin.from('user_profiles').select('full_name').eq('id', userId).single(),
       admin.from('associations')
         .select('id, name, description, accent_color, created_at, logo_url, role_labels, is_public')
         .eq('id', associationId).single(),
@@ -74,7 +73,7 @@ export async function GET() {
     recentNotes: [...notesResult.notes]
       .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
       .slice(0, 5),
-    userId: user.id,
+    userId,
     associationId,
     callerRole: activeMembership.role,
     customRoleLabels,

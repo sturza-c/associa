@@ -6,9 +6,11 @@ export async function GET(req: NextRequest) {
   const associationId = searchParams.get('associationId')
   if (!associationId) return NextResponse.json({ error: 'Missing associationId' }, { status: 400 })
 
+  // Auth already verified by middleware — no auth.getUser() roundtrip needed
+  const userId = req.headers.get('x-user-id')
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const [eventsRes, membersRes] = await Promise.all([
     supabase

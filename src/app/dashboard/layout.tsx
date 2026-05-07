@@ -1,18 +1,48 @@
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { unstable_cache } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getUserMemberships } from '@/lib/actions/associations'
-import { getActiveMembership } from '@/lib/actions/active-association'
+import { cookies } from 'next/headers'
 import { AssociationProvider } from '@/contexts/association-context'
 import { AppSidebar } from '@/components/app-sidebar'
 import { CommandPalette } from '@/components/command-palette'
 import { SWRProvider } from '@/components/swr-provider'
-import type { UserProfile } from '@/types/database'
+import type { UserProfile, MembershipWithAssociation } from '@/types/database'
 
-// Cache member count per association — revalidates every 60s or on revalidatePath
+// ── Cached data fetchers (admin client = no JWT roundtrip, 60 s TTL) ──────────
+
+const getCachedMemberships = unstable_cache(
+  async (userId: string): Promise<MembershipWithAssociation[]> => {
+    const admin = createAdminClient()
+    const { data, error } = await admin
+      .from('association_memberships')
+      .select('*, associations(*)')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('joined_at', { ascending: true })
+    if (error) return []
+    return data as MembershipWithAssociation[]
+  },
+  ['layout-memberships'],
+  { revalidate: 60, tags: ['memberships'] }
+)
+
+const getCachedProfile = unstable_cache(
+  async (userId: string): Promise<UserProfile | null> => {
+    const admin = createAdminClient()
+    const { data } = await admin
+      .from('user_profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+    return data as UserProfile | null
+  },
+  ['layout-profile'],
+  { revalidate: 60, tags: ['user-profile'] }
+)
+
 const getCachedMemberCount = unstable_cache(
-  async (associationId: string) => {
+  async (associationId: string): Promise<number> => {
     const admin = createAdminClient()
     const { count } = await admin
       .from('association_memberships')
@@ -25,31 +55,29 @@ const getCachedMemberCount = unstable_cache(
   { revalidate: 60, tags: ['member-count'] }
 )
 
-async function getUserProfile(userId: string): Promise<UserProfile | null> {
-  const supabase = await createClient()
-  const { data } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('id', userId)
-    .single()
-  return data
-}
+// ── Layout ────────────────────────────────────────────────────────────────────
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  // userId is stamped by middleware after validating the JWT — no auth.getUser() needed here
+  const headerStore = await headers()
+  const userId = headerStore.get('x-user-id')
+  if (!userId) redirect('/login')
 
-  if (authError && !user) redirect('/login')
-  if (!user) redirect('/login')
+  // Read the active association cookie to find the default selection
+  const cookieStore = await cookies()
+  const activeAssocId = cookieStore.get('associa_active_id')?.value ?? null
 
-  const [memberships, profile, activeMembership] = await Promise.all([
-    getUserMemberships(),
-    getUserProfile(user.id),
-    getActiveMembership(),
+  const [memberships, profile] = await Promise.all([
+    getCachedMemberships(userId),
+    getCachedProfile(userId),
   ])
 
   if (memberships.length === 0) redirect('/onboarding')
   if (!profile) redirect('/login')
+
+  const activeMembership =
+    (activeAssocId ? memberships.find(m => m.association_id === activeAssocId) : null)
+    ?? memberships[0]
 
   const memberCount = activeMembership
     ? await getCachedMemberCount(activeMembership.association_id)
