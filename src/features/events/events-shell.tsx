@@ -15,7 +15,7 @@ import type {
 import {
   Plus, ChevronLeft, CalendarDays, Clock, MapPin, Users, Pencil,
   Trash2, Check, X, TrendingUp, TrendingDown, CheckSquare, Square,
-  AlertCircle, Sparkles,
+  AlertCircle, Sparkles, Calendar,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CollapsibleRail } from '@/components/collapsible-rail'
@@ -53,6 +53,14 @@ function fmtDateShort(d: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function fmtDay(d: string) {
+  return new Date(d + 'T00:00:00').toLocaleDateString('fr-CH', { day: 'numeric' })
+}
+
+function fmtMonth(d: string) {
+  return new Date(d + 'T00:00:00').toLocaleDateString('fr-CH', { month: 'short' })
+}
+
 function fmtTime(t: string) { return t.slice(0, 5) }
 
 function daysUntil(d: string) {
@@ -66,18 +74,20 @@ function initials(name: string | null, email: string) {
   return email[0].toUpperCase()
 }
 
+// ─── Status & RSVP configs ─────────────────────────────────────────────────────
+
 const STATUS_CONFIG = {
-  planned:   { label: 'Planifié',  color: '#60a5fa', bg: 'bg-blue-500/10',   text: 'text-blue-300',   border: 'border-blue-500/20' },
-  active:    { label: 'En cours',  color: '#34d399', bg: 'bg-emerald-500/10', text: 'text-emerald-300', border: 'border-emerald-500/20' },
-  done:      { label: 'Terminé',   color: '#94a3b8', bg: 'bg-white/6',        text: 'text-muted-foreground', border: 'border-white/10' },
-  cancelled: { label: 'Annulé',    color: '#f87171', bg: 'bg-red-500/10',     text: 'text-red-300',    border: 'border-red-500/20' },
-}
+  planned:   { label: 'Planifié',  color: '#60a5fa', bg: 'bg-blue-500/10',    text: 'text-blue-600 dark:text-blue-400',    border: 'border-blue-500/20' },
+  active:    { label: 'En cours',  color: '#10b981', bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/20' },
+  done:      { label: 'Terminé',   color: '#94a3b8', bg: 'bg-muted',          text: 'text-muted-foreground',                border: 'border-border' },
+  cancelled: { label: 'Annulé',    color: '#ef4444', bg: 'bg-red-500/10',     text: 'text-red-600 dark:text-red-400',       border: 'border-red-500/20' },
+} as const
 
 const RSVP_CONFIG = {
-  going:    { label: 'Je participe', color: 'text-emerald-300', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25' },
-  maybe:    { label: 'Peut-être',    color: 'text-amber-300',   bg: 'bg-amber-500/10',   border: 'border-amber-500/25' },
-  declined: { label: 'Absent',       color: 'text-red-300',     bg: 'bg-red-500/10',     border: 'border-red-500/25' },
-}
+  going:    { label: 'Je participe', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+  maybe:    { label: 'Peut-être',    color: 'text-amber-600 dark:text-amber-400',     bg: 'bg-amber-500/10',   border: 'border-amber-500/20' },
+  declined: { label: 'Absent',       color: 'text-red-600 dark:text-red-400',         bg: 'bg-red-500/10',     border: 'border-red-500/20' },
+} as const
 
 // ─── Main shell ───────────────────────────────────────────────────────────────
 
@@ -111,10 +121,19 @@ export function EventsShell({ events, members, associationId, callerRole, curren
     })
   }
 
+  // ── Stats for overview ─────────────────────────────────────────────────────
+  const now = new Date()
+  const thisMonthUpcoming = events.filter(ev => {
+    if (!ev.event_date) return false
+    const d = new Date(ev.event_date + 'T00:00:00')
+    return d >= today && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+  }).length
+  const totalGoingAll = events.reduce((s, ev) => s + (ev.participants?.filter(p => p.response === 'going').length ?? 0), 0)
+
   return (
     <div className="h-full flex flex-col">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-8 py-5 border-b border-white/6 shrink-0">
+      <div className="flex items-center justify-between px-8 py-5 border-b border-border shrink-0">
         <div className="flex items-center gap-4">
           {selectedEvent && (
             <button onClick={() => setSelectedId(null)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
@@ -131,7 +150,7 @@ export function EventsShell({ events, members, associationId, callerRole, curren
             </h1>
           </div>
         </div>
-        {canManage && !selectedEvent && (
+        {canManage && !migrationNeeded && !selectedEvent && (
           <button
             onClick={() => setCreateOpen(true)}
             className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
@@ -141,10 +160,10 @@ export function EventsShell({ events, members, associationId, callerRole, curren
         )}
         {canManage && selectedEvent && (
           <div className="flex items-center gap-2">
-            <button onClick={() => setEditEvent(selectedEvent)} className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition-colors">
+            <button onClick={() => setEditEvent(selectedEvent)} className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-sm hover:bg-muted transition-colors">
               <Pencil className="h-3.5 w-3.5" /> Modifier
             </button>
-            <button onClick={() => handleDeleteEvent(selectedEvent)} className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-300 hover:bg-red-500/10 transition-colors">
+            <button onClick={() => handleDeleteEvent(selectedEvent)} className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors">
               <Trash2 className="h-3.5 w-3.5" /> Supprimer
             </button>
           </div>
@@ -157,11 +176,11 @@ export function EventsShell({ events, members, associationId, callerRole, curren
           <div className="overflow-y-auto h-full pt-10 flex flex-col">
             {/* Filter tabs */}
             <div className="px-4 pb-3">
-              <div className="flex gap-1 rounded-lg bg-white/[0.04] p-1">
+              <div className="flex gap-1 rounded-lg bg-muted p-1">
                 {(['upcoming', 'all', 'past'] as const).map(f => (
                   <button key={f} onClick={() => setFilter(f)}
                     className={cn('flex-1 rounded-md py-1 text-[11px] font-medium transition-colors',
-                      filter === f ? 'bg-white/10 text-foreground' : 'text-muted-foreground hover:text-foreground'
+                      filter === f ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                     )}>
                     {f === 'upcoming' ? 'À venir' : f === 'past' ? 'Passés' : 'Tous'}
                   </button>
@@ -181,10 +200,10 @@ export function EventsShell({ events, members, associationId, callerRole, curren
               ))}
             </nav>
 
-            {canManage && (
-              <div className="px-4 pb-4 pt-2 border-t border-white/6 mt-2">
+            {canManage && !migrationNeeded && (
+              <div className="px-4 pb-4 pt-2 border-t border-border mt-2">
                 <button onClick={() => setCreateOpen(true)}
-                  className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors">
+                  className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
                   <Plus className="h-3.5 w-3.5" /> Nouvel événement
                 </button>
               </div>
@@ -210,6 +229,9 @@ export function EventsShell({ events, members, associationId, callerRole, curren
               events={events}
               upcoming={upcoming}
               canManage={canManage}
+              totalEvents={events.length}
+              thisMonthUpcoming={thisMonthUpcoming}
+              totalGoingAll={totalGoingAll}
               onSelect={setSelectedId}
               onCreateClick={() => setCreateOpen(true)}
             />
@@ -246,14 +268,14 @@ function EventRailItem({ event, active, onClick }: { event: AssocEventWithDetail
   return (
     <button onClick={onClick}
       className={cn('w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors',
-        active ? 'bg-white/8 text-foreground' : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+        active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
       )}>
       <span className="shrink-0 h-2 w-2 rounded-full mt-0.5" style={{ backgroundColor: cfg.color }} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{event.name}</p>
         <p className="text-[11px] text-muted-foreground/70 mt-0.5 flex items-center gap-1.5">
           {event.event_date ? fmtDateShort(event.event_date) : 'Sans date'}
-          {goingCount > 0 && <><span className="text-white/20">·</span><span>{goingCount} part.</span></>}
+          {goingCount > 0 && <><span className="opacity-30">·</span><span>{goingCount} part.</span></>}
         </p>
       </div>
     </button>
@@ -266,11 +288,11 @@ function MigrationBanner() {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center px-8 py-20">
       <div className="h-14 w-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-5">
-        <AlertCircle className="h-6 w-6 text-amber-400" />
+        <AlertCircle className="h-6 w-6 text-amber-500" />
       </div>
       <h2 className="text-lg font-semibold mb-2">Migration requise</h2>
       <p className="text-sm text-muted-foreground max-w-md">
-        Exécute <code className="text-xs bg-white/8 px-1.5 py-0.5 rounded font-mono">sql/events.sql</code> dans ton éditeur SQL Supabase pour activer cette fonctionnalité.
+        Exécute <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">sql/events.sql</code> dans ton éditeur SQL Supabase pour activer cette fonctionnalité.
       </p>
     </div>
   )
@@ -278,15 +300,27 @@ function MigrationBanner() {
 
 // ─── Overview ─────────────────────────────────────────────────────────────────
 
-function EventsOverview({ events, upcoming, canManage, onSelect, onCreateClick }: {
+function EventsOverview({ events, upcoming, canManage, totalEvents, thisMonthUpcoming, totalGoingAll, onSelect, onCreateClick }: {
   events: AssocEventWithDetails[]
   upcoming: AssocEventWithDetails[]
   canManage: boolean
+  totalEvents: number
+  thisMonthUpcoming: number
+  totalGoingAll: number
   onSelect: (id: string) => void
   onCreateClick: () => void
 }) {
   return (
     <div className="px-8 py-6 space-y-8">
+      {/* Stats bar */}
+      {events.length > 0 && (
+        <div className="grid grid-cols-3 gap-4">
+          <StatTile label="Total événements" value={totalEvents} color="#60a5fa" />
+          <StatTile label="Ce mois-ci" value={thisMonthUpcoming} color="#10b981" />
+          <StatTile label="Participants (going)" value={totalGoingAll} color="#a78bfa" />
+        </div>
+      )}
+
       {/* Upcoming events */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
@@ -316,7 +350,7 @@ function EventsOverview({ events, upcoming, canManage, onSelect, onCreateClick }
             ))}
             {canManage && (
               <button onClick={onCreateClick}
-                className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 hover:border-white/30 hover:bg-white/[0.03] transition-all min-h-[180px] gap-2 text-muted-foreground/50 hover:text-muted-foreground">
+                className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border hover:border-primary/40 hover:bg-muted/40 transition-all min-h-[180px] gap-2 text-muted-foreground/50 hover:text-muted-foreground">
                 <Plus className="h-6 w-6" />
                 <span className="text-sm font-medium">Nouvel événement</span>
               </button>
@@ -328,59 +362,87 @@ function EventsOverview({ events, upcoming, canManage, onSelect, onCreateClick }
   )
 }
 
+function StatTile({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="h-[3px]" style={{ backgroundColor: color }} />
+      <div className="px-5 py-4">
+        <p className="text-2xl font-bold tabular-nums">{value}</p>
+        <p className="text-xs text-muted-foreground mt-1">{label}</p>
+      </div>
+    </div>
+  )
+}
+
 // ─── Event card ───────────────────────────────────────────────────────────────
 
 function EventCard({ event, onClick }: { event: AssocEventWithDetails; onClick: () => void }) {
   const cfg = STATUS_CONFIG[event.status] ?? STATUS_CONFIG.planned
   const going = event.participants?.filter(p => p.response === 'going').length ?? 0
   const days = event.event_date ? daysUntil(event.event_date) : null
-  const balance = (event.budget_items ?? []).reduce((s, b) => s + (b.type === 'income' ? b.planned_amount : -b.planned_amount), 0)
   const doneTasks = (event.tasks ?? []).filter(t => t.done).length
   const totalTasks = (event.tasks ?? []).length
 
   return (
     <button onClick={onClick}
-      className="group text-left flex flex-col rounded-2xl border border-white/8 bg-white/[0.03] overflow-hidden hover:border-white/15 hover:bg-white/[0.05] transition-all">
-      {/* Color bar */}
+      className="group text-left flex flex-col rounded-2xl border border-border bg-card overflow-hidden hover:border-primary/30 hover:shadow-sm transition-all">
+      {/* Color stripe */}
       <div className="h-1 w-full" style={{ backgroundColor: cfg.color }} />
       <div className="p-5 flex flex-col gap-3 flex-1">
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-semibold leading-snug group-hover:text-foreground transition-colors line-clamp-2">{event.name}</h3>
+          {/* Date block */}
+          {event.event_date ? (
+            <div className="shrink-0 flex flex-col items-center justify-center w-10 h-10 rounded-xl bg-muted border border-border">
+              <span className="text-base font-bold leading-none">{fmtDay(event.event_date)}</span>
+              <span className="text-[9px] uppercase tracking-wide text-muted-foreground mt-0.5">{fmtMonth(event.event_date)}</span>
+            </div>
+          ) : (
+            <div className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-muted border border-border">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold leading-snug group-hover:text-foreground transition-colors line-clamp-2">{event.name}</h3>
+            {event.location && (
+              <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1 truncate">
+                <MapPin className="h-2.5 w-2.5 shrink-0" />{event.location}
+              </p>
+            )}
+          </div>
           <span className={cn('shrink-0 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-md border', cfg.bg, cfg.text, cfg.border)}>
             {cfg.label}
           </span>
         </div>
 
-        {/* Date & time */}
-        {event.event_date && (
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <CalendarDays className="h-3 w-3 shrink-0" />
-            <span className="capitalize">{fmtDate(event.event_date)}</span>
-            {days !== null && (
-              <span className={cn('ml-auto font-semibold tabular-nums', days < 0 ? 'text-muted-foreground/40' : days <= 3 ? 'text-amber-300' : 'text-muted-foreground')}>
-                {days < 0 ? `${-days}j passé` : days === 0 ? "Aujourd'hui" : days === 1 ? 'Demain' : `Dans ${days}j`}
+        {/* Countdown pill */}
+        {days !== null && (
+          <div className="flex items-center gap-2">
+            <span className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-full border',
+              days < 0
+                ? 'bg-muted text-muted-foreground border-border'
+                : days === 0
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                : days <= 3
+                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                : 'bg-muted text-muted-foreground border-border'
+            )}>
+              {days < 0 ? `${-days}j passé` : days === 0 ? "Aujourd'hui" : days === 1 ? 'Demain' : `Dans ${days}j`}
+            </span>
+            {event.start_time && (
+              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                <Clock className="h-2.5 w-2.5" />{fmtTime(event.start_time)}
+                {event.end_time && <> – {fmtTime(event.end_time)}</>}
               </span>
             )}
           </div>
         )}
-        {event.location && (
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <MapPin className="h-3 w-3 shrink-0" />
-            <span className="truncate">{event.location}</span>
-          </div>
-        )}
 
         {/* Stats row */}
-        <div className="flex items-center gap-3 pt-1 border-t border-white/5 mt-auto">
+        <div className="flex items-center gap-3 pt-1 border-t border-border mt-auto">
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Users className="h-3 w-3" /> {going}
           </span>
-          {event.budget_items?.length > 0 && (
-            <span className={cn('text-[11px] font-medium tabular-nums', balance >= 0 ? 'text-emerald-400/70' : 'text-red-400/70')}>
-              {balance >= 0 ? '+' : ''}{Math.round(balance)} CHF
-            </span>
-          )}
           {totalTasks > 0 && (
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground ml-auto">
               <CheckSquare className="h-3 w-3" /> {doneTasks}/{totalTasks}
@@ -403,15 +465,15 @@ function EventDetail({ event, members, currentUserId, canManage, associationId, 
   onRefresh: () => void
 }) {
   const cfg = STATUS_CONFIG[event.status] ?? STATUS_CONFIG.planned
-  const going  = (event.participants ?? []).filter(p => p.response === 'going')
-  const maybe  = (event.participants ?? []).filter(p => p.response === 'maybe')
+  const going    = (event.participants ?? []).filter(p => p.response === 'going')
+  const maybe    = (event.participants ?? []).filter(p => p.response === 'maybe')
   const declined = (event.participants ?? []).filter(p => p.response === 'declined')
-  const myRsvp = (event.participants ?? []).find(p => p.user_id === currentUserId)
+  const myRsvp   = (event.participants ?? []).find(p => p.user_id === currentUserId)
 
   return (
     <div className="px-8 py-6 space-y-8 max-w-4xl">
       {/* Hero */}
-      <div className="rounded-2xl border border-white/8 bg-white/[0.03] overflow-hidden">
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="h-1" style={{ backgroundColor: cfg.color }} />
         <div className="p-6 space-y-4">
           <div className="flex items-start justify-between gap-4">
@@ -539,7 +601,7 @@ function RsvpButton({ label, active, colorClass, activeBg, activeBorder, eventId
   return (
     <button onClick={handle}
       className={cn('px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
-        active ? cn(activeBg, colorClass, activeBorder) : 'border-white/10 text-muted-foreground hover:bg-white/5 hover:text-foreground'
+        active ? cn(activeBg, colorClass, activeBorder) : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'
       )}>
       {active && <Check className="h-3 w-3 inline mr-1" />}{label}
     </button>
@@ -550,7 +612,7 @@ function RemoveRsvpButton({ eventId, onRefresh }: { eventId: string; onRefresh: 
   const [, start] = useTransition()
   return (
     <button onClick={() => start(async () => { const r = await removeRsvp(eventId); if (r.error) toast.error(r.error); else onRefresh() })}
-      className="px-2 py-1.5 rounded-lg text-xs border border-white/8 text-muted-foreground/50 hover:text-muted-foreground hover:bg-white/5 transition-colors">
+      className="px-2 py-1.5 rounded-lg text-xs border border-border text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted transition-colors">
       <X className="h-3 w-3" />
     </button>
   )
@@ -561,7 +623,7 @@ function ParticipantAvatar({ participant }: { participant: EventParticipantWithP
   const ini = initials(p?.full_name ?? null, p?.email ?? '?')
   return (
     <div title={p?.full_name ?? p?.email ?? ''}
-      className="h-7 w-7 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-[10px] font-semibold">
+      className="h-7 w-7 rounded-full bg-muted border border-border flex items-center justify-center text-[10px] font-semibold">
       {ini}
     </div>
   )
@@ -606,15 +668,15 @@ function BudgetSection({ event, canManage, associationId, onRefresh }: {
       <div className="flex items-center justify-between">
         <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.18em]">Budget</h3>
         <div className="flex items-center gap-2">
-          <span className={cn('text-sm font-bold tabular-nums', balance >= 0 ? 'text-emerald-300' : 'text-red-300')}>
+          <span className={cn('text-sm font-bold tabular-nums', balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
             {balance >= 0 ? '+' : ''}{fmt(balance)}
           </span>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-[1fr_80px_80px_80px_28px] gap-3 px-4 py-2.5 border-b border-white/6 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+        <div className="grid grid-cols-[1fr_80px_80px_80px_28px] gap-3 px-4 py-2.5 border-b border-border text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
           <span>Libellé</span><span>Type</span><span className="text-right">Prévu</span><span className="text-right">Réel</span><span />
         </div>
 
@@ -622,7 +684,7 @@ function BudgetSection({ event, canManage, associationId, onRefresh }: {
           <p className="px-4 py-6 text-xs text-muted-foreground/50 text-center font-heading italic">Aucune ligne budgétaire</p>
         )}
 
-        <div className="divide-y divide-white/4">
+        <div className="divide-y divide-border">
           {items.map(item => (
             <BudgetItemRow key={item.id} item={item} canManage={canManage}
               associationId={associationId} onDelete={() => handleDelete(item.id)} onRefresh={onRefresh} />
@@ -631,18 +693,18 @@ function BudgetSection({ event, canManage, associationId, onRefresh }: {
 
         {/* Add form */}
         {adding && (
-          <div className="grid grid-cols-[1fr_80px_80px_80px_28px] gap-3 px-4 py-2.5 border-t border-white/6 items-center">
+          <div className="grid grid-cols-[1fr_80px_80px_80px_28px] gap-3 px-4 py-2.5 border-t border-border items-center">
             <input autoFocus value={label} onChange={e => setLabel(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') submitAdd(); if (e.key === 'Escape') { setAdding(null); setLabel(''); setPlanned('') } }}
-              placeholder="Libellé…" className="bg-white/5 border border-white/15 rounded-lg px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-white/20" />
+              placeholder="Libellé…" className="bg-muted border border-border rounded-lg px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50" />
             <span className={cn('text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded text-center',
-              adding === 'income' ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10')}>
+              adding === 'income' ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' : 'text-red-600 dark:text-red-400 bg-red-500/10')}>
               {adding === 'income' ? 'Recette' : 'Dépense'}
             </span>
             <input value={planned} onChange={e => setPlanned(e.target.value)} type="number" min="0" step="0.01"
               onKeyDown={e => { if (e.key === 'Enter') submitAdd(); if (e.key === 'Escape') { setAdding(null); setLabel(''); setPlanned('') } }}
-              placeholder="0.00" className="bg-white/5 border border-white/15 rounded-lg px-2 py-1 text-sm text-right outline-none focus:ring-1 focus:ring-white/20 col-span-2" />
-            <button onClick={submitAdd} className="flex h-6 w-6 items-center justify-center rounded-md bg-white/10 hover:bg-white/15 text-foreground">
+              placeholder="0.00" className="bg-muted border border-border rounded-lg px-2 py-1 text-sm text-right outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 col-span-2" />
+            <button onClick={submitAdd} className="flex h-6 w-6 items-center justify-center rounded-md bg-muted hover:bg-muted/80 border border-border text-foreground">
               <Check className="h-3 w-3" />
             </button>
           </div>
@@ -650,18 +712,18 @@ function BudgetSection({ event, canManage, associationId, onRefresh }: {
 
         {/* Totals */}
         {items.length > 0 && (
-          <div className="px-4 py-3 border-t border-white/8 bg-white/[0.02] grid grid-cols-3 gap-4">
+          <div className="px-4 py-3 border-t border-border bg-muted/40 grid grid-cols-3 gap-4">
             <div>
-              <p className="text-[10px] text-emerald-400/70 font-medium uppercase tracking-wider mb-0.5">Recettes</p>
-              <p className="text-sm font-semibold tabular-nums text-emerald-300">+{fmt(totalIncome)}</p>
+              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium uppercase tracking-wider mb-0.5">Recettes</p>
+              <p className="text-sm font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">+{fmt(totalIncome)}</p>
             </div>
             <div>
-              <p className="text-[10px] text-red-400/70 font-medium uppercase tracking-wider mb-0.5">Dépenses</p>
-              <p className="text-sm font-semibold tabular-nums text-red-300">−{fmt(totalExpense)}</p>
+              <p className="text-[10px] text-red-600 dark:text-red-400 font-medium uppercase tracking-wider mb-0.5">Dépenses</p>
+              <p className="text-sm font-semibold tabular-nums text-red-600 dark:text-red-400">−{fmt(totalExpense)}</p>
             </div>
             <div>
-              <p className="text-[10px] text-muted-foreground/70 font-medium uppercase tracking-wider mb-0.5">Solde</p>
-              <p className={cn('text-sm font-bold tabular-nums', balance >= 0 ? 'text-foreground' : 'text-red-300')}>
+              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mb-0.5">Solde</p>
+              <p className={cn('text-sm font-bold tabular-nums', balance >= 0 ? 'text-foreground' : 'text-red-600 dark:text-red-400')}>
                 {balance >= 0 ? '+' : ''}{fmt(balance)}
               </p>
             </div>
@@ -672,11 +734,11 @@ function BudgetSection({ event, canManage, associationId, onRefresh }: {
       {canManage && !adding && (
         <div className="flex gap-2">
           <button onClick={() => setAdding('income')}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-emerald-500/8 border border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/15 transition-colors">
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/15 transition-colors">
             <TrendingUp className="h-3 w-3" /> + Recette
           </button>
           <button onClick={() => setAdding('expense')}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-red-500/8 border border-red-500/20 text-red-300 hover:bg-red-500/15 transition-colors">
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/15 transition-colors">
             <TrendingDown className="h-3 w-3" /> + Dépense
           </button>
         </div>
@@ -705,27 +767,30 @@ function BudgetItemRow({ item, canManage, onDelete, onRefresh, associationId }: 
   }
 
   return (
-    <div className="group grid grid-cols-[1fr_80px_80px_80px_28px] gap-3 items-center px-4 py-2.5 hover:bg-white/[0.03] transition-colors">
+    <div className="group grid grid-cols-[1fr_80px_80px_80px_28px] gap-3 items-center px-4 py-2.5 hover:bg-muted/40 transition-colors">
       <span className="text-sm truncate">{item.label}</span>
       <span className={cn('text-[10px] font-medium uppercase tracking-wide text-center px-1.5 py-0.5 rounded',
-        isIncome ? 'text-emerald-400/80 bg-emerald-500/8' : 'text-red-400/80 bg-red-500/8')}>
+        isIncome ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' : 'text-red-600 dark:text-red-400 bg-red-500/10')}>
         {isIncome ? 'Recette' : 'Dépense'}
       </span>
-      <span className={cn('text-sm tabular-nums text-right', isIncome ? 'text-emerald-300' : 'text-red-300')}>
+      <span className={cn('text-sm tabular-nums text-right', isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
         {isIncome ? '+' : '−'}{fmt(item.planned_amount)}
       </span>
       {editingActual ? (
         <input autoFocus value={actual} onChange={e => setActual(e.target.value)} type="number" min="0" step="0.01"
           onBlur={saveActual} onKeyDown={e => { if (e.key === 'Enter') saveActual(); if (e.key === 'Escape') { setEditingActual(false); setActual(String(item.actual_amount)) } }}
-          className="bg-white/8 border border-white/20 rounded px-1.5 py-0.5 text-sm text-right outline-none w-full" />
+          className="bg-muted border border-border rounded px-1.5 py-0.5 text-sm text-right outline-none w-full focus:ring-2 focus:ring-primary/20" />
       ) : (
         <button onClick={() => canManage && setEditingActual(true)}
-          className={cn('text-sm tabular-nums text-right', canManage && 'hover:underline cursor-pointer', item.actual_amount ? (isIncome ? 'text-emerald-300/70' : 'text-red-300/70') : 'text-muted-foreground/40')}>
+          className={cn('text-sm tabular-nums text-right', canManage && 'hover:underline cursor-pointer',
+            item.actual_amount
+              ? (isIncome ? 'text-emerald-600/70 dark:text-emerald-400/70' : 'text-red-600/70 dark:text-red-400/70')
+              : 'text-muted-foreground/40')}>
           {item.actual_amount ? `${isIncome ? '+' : '−'}${fmt(item.actual_amount)}` : '—'}
         </button>
       )}
       {canManage ? (
-        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 flex h-6 w-6 items-center justify-center rounded-md hover:bg-red-500/15 text-muted-foreground/50 hover:text-red-300 transition-all">
+        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 flex h-6 w-6 items-center justify-center rounded-md hover:bg-red-500/15 text-muted-foreground/50 hover:text-red-600 dark:hover:text-red-400 transition-all">
           <Trash2 className="h-3 w-3" />
         </button>
       ) : <span />}
@@ -800,17 +865,17 @@ function TasksSection({ event, members, canManage, associationId, onRefresh }: {
 
       {/* Progress bar */}
       {tasks.length > 0 && (
-        <div className="h-1.5 w-full rounded-full bg-white/8 overflow-hidden">
-          <div className="h-full rounded-full bg-emerald-400 transition-all duration-300" style={{ width: `${pct}%` }} />
+        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+          <div className="h-full rounded-full bg-emerald-500 transition-all duration-300" style={{ width: `${pct}%` }} />
         </div>
       )}
 
-      <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
         {tasks.length === 0 && !adding && (
           <p className="px-4 py-6 text-xs text-muted-foreground/50 text-center font-heading italic">Aucune tâche planifiée</p>
         )}
 
-        <div className="divide-y divide-white/4">
+        <div className="divide-y divide-border">
           {tasks.map(task => {
             const assignee = members.find(m => m.user_id === task.assigned_to)
             return (
@@ -822,14 +887,14 @@ function TasksSection({ event, members, canManage, associationId, onRefresh }: {
 
         {/* Add form */}
         {adding && (
-          <div className="px-4 py-3 border-t border-white/6 space-y-2">
+          <div className="px-4 py-3 border-t border-border space-y-2">
             <input ref={inputRef} value={newTitle} onChange={e => setNewTitle(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') submitTask(); if (e.key === 'Escape') { setAdding(false); setNewTitle('') } }}
               placeholder="Titre de la tâche…"
-              className="w-full bg-white/5 border border-white/15 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-white/20" />
+              className="w-full bg-muted border border-border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50" />
             <div className="flex gap-2">
               <select value={newAssignee} onChange={e => setNewAssignee(e.target.value)}
-                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-white/15">
+                className="flex-1 bg-muted border border-border rounded-lg px-2 py-1.5 text-xs text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20">
                 <option value="">— Assigner à —</option>
                 {members.map(m => (
                   <option key={m.user_id} value={m.user_id} className="bg-background">
@@ -838,10 +903,10 @@ function TasksSection({ event, members, canManage, associationId, onRefresh }: {
                 ))}
               </select>
               <input value={newDue} onChange={e => setNewDue(e.target.value)} type="date"
-                className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-white/15" />
+                className="bg-muted border border-border rounded-lg px-2 py-1.5 text-xs text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20" />
             </div>
             <div className="flex items-center justify-end gap-2">
-              <button onClick={() => { setAdding(false); setNewTitle('') }} className="h-7 px-2 text-xs rounded-md hover:bg-white/8 text-muted-foreground transition-colors flex items-center gap-1">
+              <button onClick={() => { setAdding(false); setNewTitle('') }} className="h-7 px-2 text-xs rounded-md hover:bg-muted text-muted-foreground transition-colors flex items-center gap-1">
                 <X className="h-3 w-3" /> Annuler
               </button>
               <button onClick={submitTask} className="h-7 px-3 text-xs rounded-md bg-foreground text-background hover:opacity-90 flex items-center gap-1 font-medium">
@@ -854,7 +919,7 @@ function TasksSection({ event, members, canManage, associationId, onRefresh }: {
 
       {canManage && !adding && (
         <button onClick={() => setAdding(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-white/5 border border-white/8 text-muted-foreground hover:bg-white/10 hover:text-foreground transition-colors">
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-muted border border-border text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors">
           <Plus className="h-3 w-3" /> Ajouter une tâche
         </button>
       )}
@@ -870,10 +935,10 @@ function TaskRow({ task, assignee, canManage, onToggle, onDelete }: {
   const overdue = dueDays !== null && dueDays < 0 && !task.done
 
   return (
-    <div className="group flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors">
+    <div className="group flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors">
       <button onClick={() => onToggle(!task.done)} className="shrink-0 text-muted-foreground/50 hover:text-foreground transition-colors">
         {task.done
-          ? <CheckSquare className="h-4 w-4 text-emerald-400" />
+          ? <CheckSquare className="h-4 w-4 text-emerald-500" />
           : <Square className="h-4 w-4" />
         }
       </button>
@@ -883,8 +948,11 @@ function TaskRow({ task, assignee, canManage, onToggle, onDelete }: {
           {name && <span className="text-[11px] text-muted-foreground/60">{name}</span>}
           {task.due_date && (
             <>
-              {name && <span className="text-white/20">·</span>}
-              <span className={cn('text-[11px] tabular-nums', overdue ? 'text-red-400 font-semibold' : dueDays === 0 ? 'text-amber-300 font-semibold' : 'text-muted-foreground/60')}>
+              {name && <span className="opacity-30">·</span>}
+              <span className={cn('text-[11px] tabular-nums',
+                overdue ? 'text-red-600 dark:text-red-400 font-semibold' :
+                dueDays === 0 ? 'text-amber-600 dark:text-amber-400 font-semibold' :
+                'text-muted-foreground/60')}>
                 {overdue ? `En retard (${fmtDateShort(task.due_date)})` : dueDays === 0 ? "Aujourd'hui" : dueDays === 1 ? 'Demain' : fmtDateShort(task.due_date)}
               </span>
             </>
@@ -892,7 +960,7 @@ function TaskRow({ task, assignee, canManage, onToggle, onDelete }: {
         </div>
       </div>
       {canManage && (
-        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 flex h-6 w-6 items-center justify-center rounded-md hover:bg-red-500/15 text-muted-foreground/50 hover:text-red-300 transition-all shrink-0">
+        <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 flex h-6 w-6 items-center justify-center rounded-md hover:bg-red-500/15 text-muted-foreground/50 hover:text-red-600 dark:hover:text-red-400 transition-all shrink-0">
           <Trash2 className="h-3 w-3" />
         </button>
       )}
@@ -924,13 +992,13 @@ function TimelineSection({ event, members }: { event: AssocEventWithDetails; mem
       </h3>
       <div className="relative pl-4">
         {/* Vertical line */}
-        <div className="absolute left-0 top-2 bottom-2 w-px bg-white/10" />
+        <div className="absolute left-0 top-2 bottom-2 w-px bg-border" />
         <div className="space-y-3">
           {allItems.map((item, i) => (
             <div key={i} className="relative flex items-start gap-3">
               {/* Dot */}
               <div className={cn('absolute -left-4 mt-1.5 h-2 w-2 rounded-full border border-background',
-                item.isEvent ? 'bg-primary scale-125' : item.done ? 'bg-emerald-400' : 'bg-white/30'
+                item.isEvent ? 'bg-primary scale-125' : item.done ? 'bg-emerald-500' : 'bg-muted-foreground/30'
               )} style={item.isEvent ? { transform: 'translateX(-2px) scale(1.4)' } : {}} />
               <div className="flex-1 min-w-0 ml-2">
                 <p className={cn('text-sm', item.isEvent ? 'font-semibold' : item.done ? 'line-through text-muted-foreground/50' : '')}>
@@ -994,62 +1062,63 @@ function EventFormDialog({ event, associationId, onClose, onSuccess }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onMouseDown={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div onMouseDown={e => e.stopPropagation()}
-        className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-popover/95 backdrop-blur-2xl shadow-2xl overflow-hidden">
-        <div className="h-px w-full bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+        className="relative w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+        {/* Top accent line */}
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
         <div className="px-6 pt-5 pb-6">
-          <h2 className="text-base font-semibold mb-5">{isEdit ? 'Modifier l\'événement' : 'Nouvel événement'}</h2>
+          <h2 className="text-base font-semibold mb-5">{isEdit ? "Modifier l'événement" : 'Nouvel événement'}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Nom *</label>
+              <label className="text-xs font-medium text-muted-foreground">Nom *</label>
               <input value={name} onChange={e => setName(e.target.value)} required autoFocus
                 placeholder="Ex: Soirée annuelle, AG 2025…"
-                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/15" />
+                className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50" />
             </div>
 
             {/* Date + times */}
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</label>
+                <label className="text-xs font-medium text-muted-foreground">Date</label>
                 <input value={date} onChange={e => setDate(e.target.value)} type="date"
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/15" />
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Début</label>
+                <label className="text-xs font-medium text-muted-foreground">Début</label>
                 <input value={startTime} onChange={e => setStartTime(e.target.value)} type="time"
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/15" />
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Fin</label>
+                <label className="text-xs font-medium text-muted-foreground">Fin</label>
                 <input value={endTime} onChange={e => setEndTime(e.target.value)} type="time"
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/15" />
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50" />
               </div>
             </div>
 
             {/* Location */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Lieu</label>
+              <label className="text-xs font-medium text-muted-foreground">Lieu</label>
               <input value={location} onChange={e => setLocation(e.target.value)}
                 placeholder="Salle, adresse, lien Zoom…"
-                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/15" />
+                className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50" />
             </div>
 
             {/* Description */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Description</label>
+              <label className="text-xs font-medium text-muted-foreground">Description</label>
               <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
                 placeholder="Programme, informations pratiques…"
-                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/15 resize-none" />
+                className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 resize-none" />
             </div>
 
             {/* Status + max participants */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Statut</label>
+                <label className="text-xs font-medium text-muted-foreground">Statut</label>
                 <select value={status} onChange={e => setStatus(e.target.value as AssocEventWithDetails['status'])}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/15">
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50">
                   <option value="planned" className="bg-background">Planifié</option>
                   <option value="active"  className="bg-background">En cours</option>
                   <option value="done"    className="bg-background">Terminé</option>
@@ -1057,21 +1126,21 @@ function EventFormDialog({ event, associationId, onClose, onSuccess }: {
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Max. participants</label>
+                <label className="text-xs font-medium text-muted-foreground">Max. participants</label>
                 <input value={maxParticipants} onChange={e => setMaxParticipants(e.target.value)} type="number" min="1"
                   placeholder="Illimité"
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/15" />
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50" />
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
               <button type="button" onClick={onClose}
-                className="px-4 py-2 rounded-xl border border-white/10 text-sm hover:bg-white/5 transition-colors">
+                className="px-4 py-2 rounded-xl border border-border text-sm hover:bg-muted transition-colors">
                 Annuler
               </button>
               <button type="submit" disabled={loading || !name.trim()}
                 className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
-                {loading ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer l\'événement'}
+                {loading ? 'Enregistrement…' : isEdit ? 'Enregistrer' : "Créer l'événement"}
               </button>
             </div>
           </form>
