@@ -91,33 +91,44 @@ const BULK_MEMBERS = generateBulkMembers(250)
 
 function rid() { return crypto.randomUUID() }
 
+/** Log a DB result — returns true if OK, pushes error to log if not. */
+function chk(
+  label: string,
+  result: { error: { message: string } | null },
+  log: string[],
+): boolean {
+  if (result.error) {
+    log.push(`  ✗ ${label}: ${result.error.message}`)
+    return false
+  }
+  return true
+}
+
 async function ensureAuthUser(
   admin: ReturnType<typeof createAdminClient>,
   userId: string,
   email: string,
   fullName: string,
 ) {
-  const { data: existing } = await admin.from('user_profiles').select('id').eq('id', userId).single()
-  if (existing) return
-  try {
-    const { error } = await admin.auth.admin.createUser({
-      email,
-      password: 'AEC-Demo-2026!',
-      email_confirm: true,
-      user_metadata: { full_name: fullName },
-    })
-    if (error && !error.message.includes('already')) throw error
-  } catch (e: unknown) {
-    const err = e as { message?: string }
-    if (!err?.message?.includes('already')) throw e
-  }
+  // Check by deterministic UUID — not by profile (profile may not exist yet)
+  const { data: existing } = await admin.auth.admin.getUserById(userId)
+  if (existing?.user) return
+
+  const { error } = await admin.auth.admin.createUser({
+    id: userId,           // ← deterministic UUID, so FK constraints work
+    email,
+    password: 'AEC-Demo-2026!',
+    email_confirm: true,
+    user_metadata: { full_name: fullName },
+  })
+  if (error && !error.message.toLowerCase().includes('already')) throw error
 }
 
 async function ensureBulkAuthUsers(
   admin: ReturnType<typeof createAdminClient>,
   members: typeof BULK_MEMBERS,
 ) {
-  // Check how many already exist
+  // Cheaper check: count profiles with our prefix
   const { count } = await admin
     .from('user_profiles')
     .select('id', { count: 'exact', head: true })
@@ -155,23 +166,27 @@ export async function POST(req: NextRequest) {
     log.push('✓ Bulk users ensured (250)')
 
     // ── 3. User profiles ──────────────────────────────────────────────────────
-    await admin.from('user_profiles').upsert(
+    const profilesRes = await admin.from('user_profiles').upsert(
       DEMO_USERS.map(u => ({ id: u.id, email: u.email, full_name: u.full_name })),
       { onConflict: 'id' }
     )
+    chk('core profiles', profilesRes, log)
+
     // Bulk profiles — insert in chunks of 100 to avoid payload limits
     const bulkProfiles = BULK_MEMBERS.map(m => ({
       id: m.userId,
       email: m.email,
       full_name: m.fullName,
     }))
+    let bulkProfileErrors = 0
     for (let i = 0; i < bulkProfiles.length; i += 100) {
-      await admin.from('user_profiles').upsert(bulkProfiles.slice(i, i + 100), { onConflict: 'id' })
+      const r = await admin.from('user_profiles').upsert(bulkProfiles.slice(i, i + 100), { onConflict: 'id' })
+      if (r.error) bulkProfileErrors++
     }
-    log.push('✓ User profiles upserted (257 total)')
+    log.push(bulkProfileErrors === 0 ? '✓ User profiles upserted (257 total)' : `⚠ User profiles: ${bulkProfileErrors} batch(es) failed`)
 
     // ── 4. Association ────────────────────────────────────────────────────────
-    await admin.from('associations').upsert({
+    const assocRes = await admin.from('associations').upsert({
       id: AEC_ID,
       name: "Association des Esprits Curieux",
       description: "Un club de lecture étudiant ouvert à toutes et tous, sans condition de faculté ni de niveau. Ses membres se retrouvent régulièrement pour discuter d'œuvres choisies ensemble — romans, essais, philosophie ou histoire. L'ambiance se veut conviviale et sans prétention : seule la curiosité est requise.",
@@ -179,10 +194,11 @@ export async function POST(req: NextRequest) {
       slug: 'aec',
       is_public: true,
     }, { onConflict: 'id' })
+    if (!chk('association', assocRes, log)) throw new Error('Association upsert failed — stopping')
     log.push('✓ Association created')
 
     // ── 5. Core memberships ───────────────────────────────────────────────────
-    await admin.from('association_memberships').upsert(
+    const membRes = await admin.from('association_memberships').upsert(
       DEMO_USERS.map((u, i) => ({
         id: u.membershipId,
         association_id: AEC_ID,
@@ -193,6 +209,7 @@ export async function POST(req: NextRequest) {
       })),
       { onConflict: 'id' }
     )
+    chk('core memberships', membRes, log)
 
     // ── 6. Bulk memberships ───────────────────────────────────────────────────
     const { count: bulkMemberCount } = await admin
@@ -243,17 +260,18 @@ export async function POST(req: NextRequest) {
     log.push('✓ Titles created')
 
     // ── 9. Task groups ────────────────────────────────────────────────────────
-    await admin.from('task_groups').upsert([
+    const tgRes = await admin.from('task_groups').upsert([
       { id: TG_LECTURE, association_id: AEC_ID, name: 'Séances de lecture', color: '#7c3aed', created_by: U_LEA },
       { id: TG_ADMIN,   association_id: AEC_ID, name: 'Administration',    color: '#0ea5e9', created_by: U_LEA },
     ], { onConflict: 'id' })
+    chk('task groups', tgRes, log)
     log.push('✓ Task groups created')
 
     // ── 10. Tasks ─────────────────────────────────────────────────────────────
     const { count: taskCount } = await admin
       .from('tasks').select('id', { count: 'exact', head: true }).eq('association_id', AEC_ID)
     if ((taskCount ?? 0) === 0) {
-      await admin.from('tasks').insert([
+      const tasksRes = await admin.from('tasks').insert([
         { association_id: AEC_ID, created_by: U_LEA, title: "Commander 8 ex. de 'Fahrenheit 451'",      priority: 'high',   status: 'todo',        assigned_to: U_CHLOE,   due_date: '2026-05-18', group_id: TG_LECTURE, is_personal: false, description: null },
         { association_id: AEC_ID, created_by: U_LEA, title: "Réserver la salle pour juin",              priority: 'high',   status: 'todo',        assigned_to: U_MAXIME,  due_date: '2026-05-20', group_id: TG_ADMIN,   is_personal: false, description: null },
         { association_id: AEC_ID, created_by: U_LEA, title: "Envoyer les convocations AG",              priority: 'high',   status: 'in_progress', assigned_to: U_MAXIME,  due_date: '2026-05-25', group_id: TG_ADMIN,   is_personal: false, description: null },
@@ -265,17 +283,19 @@ export async function POST(req: NextRequest) {
         { association_id: AEC_ID, created_by: U_LEA, title: "Préparer les questions de discussion",    priority: 'medium', status: 'done',        assigned_to: U_LEA,     due_date: '2026-05-15', group_id: TG_LECTURE, is_personal: false, description: null },
         { association_id: AEC_ID, created_by: U_LEA, title: "Poster l'annonce sur les réseaux",        priority: 'low',    status: 'done',        assigned_to: U_INES,    due_date: '2026-05-18', group_id: TG_LECTURE, is_personal: false, description: null },
       ])
+      chk('tasks', tasksRes, log)
     }
     log.push('✓ Tasks created')
 
     // ── 11. Events ────────────────────────────────────────────────────────────
-    await admin.from('events').upsert([
+    const eventsRes = await admin.from('events').upsert([
       { id: EV_CAMUS_PAST, association_id: AEC_ID, created_by: U_LEA,    name: "Discussion : Le Mythe de Sisyphe",   description: "Séance de discussion autour de l'essai philosophique d'Albert Camus. Qu'est-ce que l'absurde ? Peut-on trouver un sens à l'existence malgré tout ?", event_date: '2026-01-15', start_time: '18:30:00', end_time: '20:30:00', location: 'Bibliothèque universitaire, salle 204', status: 'done',    max_participants: 20 },
       { id: EV_HUGO_PAST,  association_id: AEC_ID, created_by: U_LEA,    name: "Soirée littéraire : Les Misérables",  description: "Discussion du chef-d'œuvre de Victor Hugo. Jean Valjean, Cosette, Javert — retour sur les personnages inoubliables.", event_date: '2026-02-20', start_time: '19:00:00', end_time: '21:00:00', location: "Café des Étudiants, rue des Acacias 12",    status: 'done',    max_participants: 15 },
       { id: EV_ATELIER,    association_id: AEC_ID, created_by: U_MAXIME, name: "Atelier d'écriture créative",         description: "Atelier pratique pour explorer l'écriture courte : contraintes OuLiPo, micro-nouvelles et exercices de style.",           event_date: '2026-03-10', start_time: '17:00:00', end_time: '19:00:00', location: 'Salle B102, Bâtiment principal',           status: 'done',    max_participants: 12 },
       { id: EV_ETRANGER,   association_id: AEC_ID, created_by: U_LEA,    name: "Café littéraire : L'Étranger",        description: "Séance de discussion autour du roman d'Albert Camus. La notion d'absurde, l'indifférence de Meursault et la question de la culpabilité.",           event_date: '2026-05-22', start_time: '18:30:00', end_time: '20:30:00', location: 'Salle B204, Bâtiment principal',           status: 'planned', max_participants: 15 },
       { id: EV_AG,         association_id: AEC_ID, created_by: U_LEA,    name: "Assemblée Générale 2026",             description: "AG annuelle de l'AEC. Bilan de l'année, rapport financier, élection du bureau et planning 2026-2027.",                  event_date: '2026-06-15', start_time: '17:00:00', end_time: '19:00:00', location: "Amphithéâtre A1, Université",              status: 'planned', max_participants: null },
     ], { onConflict: 'id' })
+    chk('events', eventsRes, log)
     log.push('✓ Events created')
 
     // ── 12. Event participants ────────────────────────────────────────────────
@@ -345,12 +365,13 @@ export async function POST(req: NextRequest) {
     log.push('✓ Event tasks created')
 
     // ── 15. Finance categories ────────────────────────────────────────────────
-    await admin.from('finance_categories').upsert([
+    const fcRes = await admin.from('finance_categories').upsert([
       { id: FC_COTIS,      association_id: AEC_ID, name: 'Cotisations',  color: '#10b981', position: 0 },
       { id: FC_ACHATS,     association_id: AEC_ID, name: 'Achats',       color: '#ef4444', position: 1 },
       { id: FC_SUBVENTION, association_id: AEC_ID, name: 'Subventions',  color: '#3b82f6', position: 2 },
       { id: FC_EVENEMENTS, association_id: AEC_ID, name: 'Événements',   color: '#f59e0b', position: 3 },
     ], { onConflict: 'id' })
+    chk('finance categories', fcRes, log)
     log.push('✓ Finance categories created')
 
     // ── 16. Finance transactions (haute trésorerie) ───────────────────────────
