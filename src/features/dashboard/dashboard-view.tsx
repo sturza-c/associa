@@ -2,9 +2,16 @@
 
 import useSWR from 'swr'
 import { useAssociation } from '@/contexts/association-context'
+import { DashboardSkeleton } from '@/components/ui/skeleton-layouts'
 import { DashboardClient } from './dashboard-client'
 
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+// Throw on non-2xx so SWR keeps the last good data instead of replacing it
+// with an `{ error }` payload that DashboardClient can't render.
+const fetcher = async (url: string) => {
+  const r = await fetch(url)
+  if (!r.ok) throw new Error(`GET ${url} → ${r.status}`)
+  return r.json()
+}
 
 interface Props {
   initialData: Record<string, unknown>
@@ -38,6 +45,10 @@ export function DashboardView({ initialData }: Props) {
         },
       }
     : undefined
+
+  // No data yet (e.g. just switched association, no SSR fallback): show the
+  // skeleton rather than rendering DashboardClient with undefined props.
+  if (!patchedData) return <DashboardSkeleton />
 
   return <DashboardClient data={patchedData} onRefresh={() => mutate()} />
 }
