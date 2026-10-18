@@ -133,12 +133,9 @@ export function LoginForm() {
         </form>
 
         <p className="text-center text-sm text-white/30">
-          Pas encore de compte ?{' '}
-          <Link
-            href={`/register${next !== '/dashboard' ? `?next=${encodeURIComponent(next)}${prefillEmail ? `&email=${encodeURIComponent(prefillEmail)}` : ''}` : ''}`}
-            className="text-white/65 hover:text-white/90 transition-colors font-medium"
-          >
-            Créer un compte
+          Associa est en bêta privée.{' '}
+          <Link href="/#waitlist" className="text-white/65 hover:text-white/90 transition-colors font-medium">
+            Rejoindre la waitlist
           </Link>
         </p>
       </div>

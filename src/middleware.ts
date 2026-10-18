@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isBetaAllowed, isGatedPath } from '@/lib/beta'
 
 export async function middleware(request: NextRequest) {
   // Start with a mutable copy of the incoming request headers.
@@ -41,6 +42,25 @@ export async function middleware(request: NextRequest) {
 
   // Single auth.getUser() call for the entire request lifecycle.
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Private beta: the app is only open to allow-listed e-mails; everyone else goes to the waitlist.
+  const path = request.nextUrl.pathname
+  if (isGatedPath(path) && !isBetaAllowed(user?.email)) {
+    // let a signed-out person reach the login form when they open the dashboard directly
+    if (!user && path.startsWith('/dashboard')) {
+      const loginUrl = request.nextUrl.clone()
+      loginUrl.pathname = '/login'
+      return NextResponse.redirect(loginUrl)
+    }
+    if (path.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Associa est en bêta privée' }, { status: 403 })
+    }
+    const waitlist = request.nextUrl.clone()
+    waitlist.pathname = '/'
+    waitlist.search = ''
+    waitlist.hash = 'waitlist'
+    return NextResponse.redirect(waitlist)
+  }
 
   if (user) {
     // Stamp the verified user ID on the REQUEST headers so the layout and
