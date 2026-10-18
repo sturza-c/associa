@@ -31,6 +31,8 @@ export function EventsView({ associationId, callerRole, currentUserId, initialDa
       callerRole={callerRole}
       currentUserId={currentUserId}
       migrationNeeded={data.migrationNeeded ?? false}
+      publicSlug={data.publicSlug ?? null}
+      signupReady={data.signupReady ?? false}
       onRefresh={() => mutate()}
     />
   )

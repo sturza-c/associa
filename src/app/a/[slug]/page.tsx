@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Users, CalendarDays, MapPin, Clock, Globe } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { PublicSignup } from './signup-form'
+import { AssociaLogo } from '@/components/brand/associa-logo'
 
 interface Props {
   params: Promise<{ slug: string }>
@@ -43,18 +45,32 @@ export default async function PublicAssociationPage({ params }: Props) {
     .eq('is_active', true)
 
   // Upcoming events (from new events table, with graceful fallback)
-  let upcomingEvents: { id: string; name: string; event_date: string; location: string | null; start_time: string | null }[] = []
+  let upcomingEvents: {
+    id: string; name: string; event_date: string; location: string | null; start_time: string | null
+    status: string; max_participants: number | null; public_signup?: boolean
+  }[] = []
   const today = new Date().toISOString().slice(0, 10)
 
   const { data: eventsData, error: evErr } = await admin
     .from('events')
-    .select('id, name, event_date, location, start_time')
+    .select('*')
     .eq('association_id', assoc.id)
     .gte('event_date', today)
     .order('event_date', { ascending: true })
     .limit(6)
 
-  if (!evErr && eventsData) upcomingEvents = eventsData
+  if (!evErr && eventsData) upcomingEvents = eventsData.filter(ev => ev.status !== 'cancelled')
+
+  // Places taken per event (members who said "going" + sign-ups from this page)
+  const taken = new Map<string, number>()
+  if (upcomingEvents.length) {
+    const ids = upcomingEvents.map(e => e.id)
+    const [{ data: going }, { data: regs }] = await Promise.all([
+      admin.from('event_participants').select('event_id').in('event_id', ids).eq('response', 'going'),
+      admin.from('event_registrations').select('event_id').in('event_id', ids),
+    ])
+    for (const r of [...(going ?? []), ...(regs ?? [])]) taken.set(r.event_id, (taken.get(r.event_id) ?? 0) + 1)
+  }
 
 
   return (
@@ -127,6 +143,7 @@ export default async function PublicAssociationPage({ params }: Props) {
               {upcomingEvents.map(ev => {
                 const days = daysUntil(ev.event_date)
                 const dayLabel = days === 0 ? "Aujourd'hui" : days === 1 ? 'Demain' : `Dans ${days} j`
+                const left = ev.max_participants ? Math.max(0, ev.max_participants - (taken.get(ev.id) ?? 0)) : null
                 return (
                   <div
                     key={ev.id}
@@ -168,7 +185,19 @@ export default async function PublicAssociationPage({ params }: Props) {
                             </span>
                           </>
                         )}
+                        {left !== null && (
+                          <>
+                            <span className="text-muted-foreground/30">·</span>
+                            <span className={cn('flex items-center gap-1', left <= 5 ? 'text-amber-500 font-medium' : '')}>
+                              <Users className="h-3 w-3" />
+                              {left === 0 ? 'Complet' : `${left} place${left > 1 ? 's' : ''} restante${left > 1 ? 's' : ''}`}
+                            </span>
+                          </>
+                        )}
                       </div>
+                      {ev.public_signup === true && ev.status !== 'done' && (
+                        <PublicSignup slug={slug} eventId={ev.id} accent={accent} full={left === 0} />
+                      )}
                     </div>
                   </div>
                 )
@@ -180,8 +209,10 @@ export default async function PublicAssociationPage({ params }: Props) {
 
         {/* Footer */}
         <footer className="text-center text-xs text-muted-foreground/50 pb-4">
-          <span>Géré avec </span>
-          <Link href="/" className="hover:text-foreground transition-colors">Associa</Link>
+          <Link href="/" className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors">
+            <span>Géré avec</span>
+            <AssociaLogo className="h-3.5" title="Associa" />
+          </Link>
         </footer>
       </div>
     </div>

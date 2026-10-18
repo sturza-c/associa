@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -12,7 +13,9 @@ export async function GET(req: NextRequest) {
 
   const supabase = await createClient()
 
-  const [eventsRes, membersRes] = await Promise.all([
+  // Public sign-ups and photos live in their own tables (sql/event_signup_photos.sql);
+  // they are fetched separately so the page keeps working before that migration runs.
+  const [eventsRes, membersRes, regsRes, photosRes, assocRes] = await Promise.all([
     supabase
       .from('events')
       .select(`
@@ -29,6 +32,21 @@ export async function GET(req: NextRequest) {
       .select('user_id, role, user_profiles(id, full_name, email, avatar_url)')
       .eq('association_id', associationId)
       .eq('is_active', true),
+    supabase
+      .from('event_registrations')
+      .select('*, events!inner(association_id)')
+      .eq('events.association_id', associationId)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('event_photos')
+      .select('*')
+      .eq('association_id', associationId)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('associations')
+      .select('slug, is_public')
+      .eq('id', associationId)
+      .single(),
   ])
 
   // Graceful degradation — table not yet created
@@ -36,8 +54,32 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ events: [], members: membersRes.data ?? [], migrationNeeded: true })
   }
 
+  const regs = regsRes.error ? [] : (regsRes.data ?? []).map(r => ({
+    id: r.id, event_id: r.event_id, full_name: r.full_name, email: r.email, note: r.note, created_at: r.created_at,
+  }))
+  let photos = photosRes.error ? [] : (photosRes.data ?? [])
+
+  // Members passed RLS on event_photos → sign the files for an hour
+  if (photos.length) {
+    const admin = createAdminClient()
+    const { data: signed } = await admin.storage
+      .from('event-photos')
+      .createSignedUrls(photos.map(p => p.file_path), 3600)
+    const byPath = new Map((signed ?? []).map(s => [s.path, s.signedUrl]))
+    photos = photos.map(p => ({ ...p, url: byPath.get(p.file_path) ?? null }))
+  }
+
+  const events = (eventsRes.data ?? []).map(ev => ({
+    ...ev,
+    registrations: regs.filter(r => r.event_id === ev.id),
+    photos: photos.filter(p => p.event_id === ev.id),
+  }))
+
+  const assoc = assocRes.data
   return NextResponse.json({
-    events: eventsRes.data ?? [],
+    events,
     members: membersRes.data ?? [],
+    publicSlug: assoc?.is_public && assoc.slug ? assoc.slug : null,
+    signupReady: !regsRes.error,
   })
 }

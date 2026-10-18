@@ -36,6 +36,7 @@ export interface EventInput {
   location?: string | null
   status?: EventStatus
   max_participants?: number | null
+  public_signup?: boolean
 }
 
 export async function createEvent(associationId: string, input: EventInput) {
@@ -219,6 +220,22 @@ export async function deleteEventTask(id: string, associationId: string) {
 
   const admin = createAdminClient()
   const { error } = await admin.from('event_tasks').delete().eq('id', id)
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+// ── Public sign-ups (from /a/[slug]) ─────────────────────────────────────────
+
+export async function removeEventRegistration(id: string, eventId: string, associationId: string) {
+  const caller = await getCallerForAssoc(associationId)
+  if ('error' in caller) return { error: caller.error }
+  if (!canManageEvents(caller.role)) return { error: 'Permissions insuffisantes' }
+
+  const admin = createAdminClient()
+  // scope the delete to an event of this association
+  const { data: ev } = await admin.from('events').select('id').eq('id', eventId).eq('association_id', associationId).single()
+  if (!ev) return { error: 'Événement introuvable' }
+  const { error } = await admin.from('event_registrations').delete().eq('id', id).eq('event_id', eventId)
   if (error) return { error: error.message }
   return { success: true }
 }

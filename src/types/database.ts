@@ -196,9 +196,33 @@ export interface AssocEvent {
   location: string | null
   status: EventStatus
   max_participants: number | null
+  /** undefined until sql/event_signup_photos.sql has run */
+  public_signup?: boolean
   created_by: string
   created_at: string
   updated_at: string
+}
+
+export interface EventRegistration {
+  id: string
+  event_id: string
+  full_name: string
+  email: string
+  note: string | null
+  created_at: string
+}
+
+export interface EventPhoto {
+  id: string
+  event_id: string
+  association_id: string
+  file_path: string
+  width: number | null
+  height: number | null
+  uploaded_by: string
+  created_at: string
+  /** short-lived signed URL, added by /api/events */
+  url: string | null
 }
 
 export interface EventParticipant {
@@ -240,6 +264,8 @@ export interface AssocEventWithDetails extends AssocEvent {
   participants: EventParticipantWithProfile[]
   budget_items: EventBudgetItem[]
   tasks: EventTask[]
+  registrations?: EventRegistration[]
+  photos?: EventPhoto[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

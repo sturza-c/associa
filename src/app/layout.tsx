@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Plus_Jakarta_Sans, Instrument_Serif, Cormorant_Garamond, Playfair_Display } from 'next/font/google'
+import { Plus_Jakarta_Sans, Instrument_Serif, Cormorant_Garamond } from 'next/font/google'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
@@ -24,16 +24,17 @@ const cormorant = Cormorant_Garamond({
   style: ['normal', 'italic'],
 })
 
-const playfair = Playfair_Display({
-  variable: '--font-title',
-  subsets: ['latin'],
-  weight: ['700', '800'],
-  style: ['normal', 'italic'],
-})
-
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.getassocia.me'),
   title: 'Associa',
   description: 'Gérez votre association simplement.',
+  openGraph: {
+    title: 'Associa',
+    description: 'Gérez votre association simplement.',
+    siteName: 'Associa',
+    locale: 'fr_CH',
+    type: 'website',
+  },
 }
 
 export default function RootLayout({
@@ -44,7 +45,7 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
-      className={`${jakarta.variable} ${instrumentSerif.variable} ${cormorant.variable} ${playfair.variable} dark h-full antialiased`}
+      className={`${jakarta.variable} ${instrumentSerif.variable} ${cormorant.variable} dark h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full bg-background text-foreground transition-colors duration-200">

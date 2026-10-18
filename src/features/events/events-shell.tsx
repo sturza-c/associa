@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CollapsibleRail } from '@/components/collapsible-rail'
+import { PublicSignupSection, PhotosSection } from './event-extras'
 import { EmptyState } from '@/components/ui/empty-state'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -36,6 +37,8 @@ interface Props {
   callerRole: Role
   currentUserId: string
   migrationNeeded: boolean
+  publicSlug: string | null
+  signupReady: boolean
   onRefresh: () => void
 }
 
@@ -91,7 +94,7 @@ const RSVP_CONFIG = {
 
 // ─── Main shell ───────────────────────────────────────────────────────────────
 
-export function EventsShell({ events, members, associationId, callerRole, currentUserId, migrationNeeded, onRefresh }: Props) {
+export function EventsShell({ events, members, associationId, callerRole, currentUserId, migrationNeeded, publicSlug, signupReady, onRefresh }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [filter, setFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming')
   const [createOpen, setCreateOpen] = useState(false)
@@ -128,7 +131,7 @@ export function EventsShell({ events, members, associationId, callerRole, curren
     const d = new Date(ev.event_date + 'T00:00:00')
     return d >= today && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   }).length
-  const totalGoingAll = events.reduce((s, ev) => s + (ev.participants?.filter(p => p.response === 'going').length ?? 0), 0)
+  const totalGoingAll = events.reduce((s, ev) => s + (ev.participants?.filter(p => p.response === 'going').length ?? 0) + (ev.registrations?.length ?? 0), 0)
 
   return (
     <div className="h-full flex flex-col">
@@ -221,7 +224,10 @@ export function EventsShell({ events, members, associationId, callerRole, curren
               members={members}
               currentUserId={currentUserId}
               canManage={canManage}
+              canDeletePhotos={['president', 'secretary'].includes(callerRole)}
               associationId={associationId}
+              publicSlug={publicSlug}
+              signupReady={signupReady}
               onRefresh={onRefresh}
             />
           ) : (
@@ -263,7 +269,7 @@ export function EventsShell({ events, members, associationId, callerRole, curren
 
 function EventRailItem({ event, active, onClick }: { event: AssocEventWithDetails; active: boolean; onClick: () => void }) {
   const cfg = STATUS_CONFIG[event.status] ?? STATUS_CONFIG.planned
-  const goingCount = event.participants?.filter(p => p.response === 'going').length ?? 0
+  const goingCount = (event.participants?.filter(p => p.response === 'going').length ?? 0) + (event.registrations?.length ?? 0)
 
   return (
     <button onClick={onClick}
@@ -378,7 +384,7 @@ function StatTile({ label, value, color }: { label: string; value: number; color
 
 function EventCard({ event, onClick }: { event: AssocEventWithDetails; onClick: () => void }) {
   const cfg = STATUS_CONFIG[event.status] ?? STATUS_CONFIG.planned
-  const going = event.participants?.filter(p => p.response === 'going').length ?? 0
+  const going = (event.participants?.filter(p => p.response === 'going').length ?? 0) + (event.registrations?.length ?? 0)
   const days = event.event_date ? daysUntil(event.event_date) : null
   const doneTasks = (event.tasks ?? []).filter(t => t.done).length
   const totalTasks = (event.tasks ?? []).length
@@ -456,12 +462,15 @@ function EventCard({ event, onClick }: { event: AssocEventWithDetails; onClick: 
 
 // ─── Event detail ─────────────────────────────────────────────────────────────
 
-function EventDetail({ event, members, currentUserId, canManage, associationId, onRefresh }: {
+function EventDetail({ event, members, currentUserId, canManage, canDeletePhotos, associationId, publicSlug, signupReady, onRefresh }: {
   event: AssocEventWithDetails
   members: MemberRow[]
   currentUserId: string
   canManage: boolean
+  canDeletePhotos: boolean
   associationId: string
+  publicSlug: string | null
+  signupReady: boolean
   onRefresh: () => void
 }) {
   const cfg = STATUS_CONFIG[event.status] ?? STATUS_CONFIG.planned
@@ -569,6 +578,16 @@ function EventDetail({ event, members, currentUserId, canManage, associationId, 
           })}
         </div>
       </section>
+
+      {/* Sign-ups from the public page */}
+      {signupReady && (
+        <PublicSignupSection event={event} canManage={canManage} associationId={associationId} publicSlug={publicSlug} onRefresh={onRefresh} />
+      )}
+
+      {/* Photos */}
+      {signupReady && (
+        <PhotosSection event={event} associationId={associationId} currentUserId={currentUserId} canDeleteAny={canDeletePhotos} onRefresh={onRefresh} />
+      )}
 
       {/* Budget */}
       <BudgetSection event={event} canManage={canManage} associationId={associationId} onRefresh={onRefresh} />

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { PlusCircle, Clock, ArrowRight } from 'lucide-react'
+import { AssociaLogo } from '@/components/brand/associa-logo'
 
 type View = 'choice' | 'create'
 
@@ -29,7 +30,7 @@ function Shell({ eyebrow, subtitle, children }: { eyebrow: string; subtitle: str
           <p className="text-[10px] text-muted-foreground uppercase tracking-[0.3em] font-semibold mb-3">
             {eyebrow}
           </p>
-          <h1 className="font-heading text-5xl italic leading-none">Associa</h1>
+          <h1 className="flex justify-center"><AssociaLogo className="h-10" /></h1>
           <p className="text-muted-foreground mt-4 text-sm">{subtitle}</p>
         </div>
         {children}

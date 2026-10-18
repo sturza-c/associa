@@ -1,22 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   LayoutDashboard, Users, CheckSquare, FileText, Wallet,
   CalendarDays, MessageSquare, BadgePercent, NotebookPen,
   TrendingUp, TrendingDown, Calendar, Circle, CheckCircle2,
   ChevronRight, Search, MoreHorizontal, Send, Paperclip,
   Folder, FolderOpen, FileText as FileIcon, Plus,
-  ChevronsLeft, Sun, Moon, Settings, LogOut, ArrowRight,
+  ChevronsLeft, Sun, Moon, Settings, LogOut, ArrowRight, User,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ViewCalendarDemo, EventDetailDemo } from './extras'
 
 // ── Accent ────────────────────────────────────────────────────────────────────
 const ACCENT = '#7c3aed'
 const hex = (opacity: number) => ACCENT + Math.round(opacity * 255).toString(16).padStart(2, '0')
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
-type NavId = 'dashboard' | 'members' | 'cotisations' | 'tasks' | 'events' | 'finances' | 'messages' | 'documents' | 'notes'
+type NavId = 'dashboard' | 'members' | 'cotisations' | 'tasks' | 'events' | 'calendar' | 'finances' | 'messages' | 'documents' | 'notes'
 
 const NAV_PILOTAGE: { id: NavId; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard',    label: 'Tableau de bord', icon: LayoutDashboard },
@@ -26,6 +28,7 @@ const NAV_PILOTAGE: { id: NavId; label: string; icon: React.ElementType }[] = [
 const NAV_OPS: { id: NavId; label: string; icon: React.ElementType }[] = [
   { id: 'tasks',      label: 'Tâches',      icon: CheckSquare },
   { id: 'events',     label: 'Événements',  icon: CalendarDays },
+  { id: 'calendar',   label: 'Agenda',      icon: Calendar },
   { id: 'documents',  label: 'Documents',   icon: FileText },
   { id: 'finances',   label: 'Finances',    icon: Wallet },
   { id: 'messages',   label: 'Messages',    icon: MessageSquare },
@@ -131,6 +134,15 @@ const CONVERSATIONS = [
 
 const DOCUMENT_FOLDERS = [
   {
+    id: 4, name: 'Assemblées générales', color: '#f59e0b',
+    docs: [
+      { name: 'Ordre du jour AG 2026.pdf',        size: '48 Ko',  date: 'Mai 2026' },
+      { name: 'Convocation AG 2026.pdf',          size: '52 Ko',  date: 'Mai 2026' },
+      { name: 'PV Assemblée Générale 2025.pdf',   size: '210 Ko', date: 'Juin 2025' },
+      { name: 'Rapport financier 2024-2025.pdf',  size: '96 Ko',  date: 'Juin 2025' },
+    ],
+  },
+  {
     id: 1, name: 'Administratif', color: '#3b82f6',
     docs: [
       { name: "Statuts de l'AEC.pdf",       size: '142 Ko', date: 'Sep 2025' },
@@ -141,7 +153,6 @@ const DOCUMENT_FOLDERS = [
   {
     id: 2, name: 'Comptes-rendus', color: '#10b981',
     docs: [
-      { name: 'PV Assemblée Générale 2025.pdf', size: '210 Ko', date: 'Juin 2025' },
       { name: 'CR Réunion — Janvier 2026.pdf',  size: '77 Ko',  date: 'Jan 2026' },
       { name: 'CR Réunion — Février 2026.pdf',  size: '90 Ko',  date: 'Fév 2026' },
       { name: 'CR Réunion — Mars 2026.pdf',     size: '67 Ko',  date: 'Mar 2026' },
@@ -526,9 +537,22 @@ function ViewMembers() {
   )
 }
 
-function ViewTasks() {
+const PERSONAL_TASKS = [
+  { id: 101, title: 'Relire le chapitre 3 avant jeudi',         priority: 'medium', status: 'todo', due: '20 mai' },
+  { id: 102, title: 'Rappeler la librairie pour la remise',     priority: 'high',   status: 'todo', due: '19 mai' },
+  { id: 103, title: 'Préparer mon intervention pour l’AG',      priority: 'medium', status: 'in_progress', due: '12 juin' },
+  { id: 104, title: 'Envoyer mes photos du café littéraire',    priority: 'low',    status: 'done', due: '16 mai' },
+]
+
+function ViewTasks({ initialScope = 'team' }: { initialScope?: 'personal' | 'team' | 'groups' }) {
+  const [scope, setScope] = useState(initialScope)
   const total = TASKS_GROUPS.flatMap(g => g.tasks).length
   const done  = TASKS_GROUPS.flatMap(g => g.tasks).filter(t => t.status === 'done').length
+  const tabs = [
+    { id: 'personal' as const, label: 'Personnelles', Icon: User,       n: PERSONAL_TASKS.length },
+    { id: 'team'     as const, label: 'Équipe',       Icon: Users,      n: total },
+    { id: 'groups'   as const, label: 'Groupes',      Icon: FolderOpen, n: TASKS_GROUPS.length },
+  ]
   return (
     <div className="max-w-3xl space-y-5">
       <div className="flex items-end justify-between">
@@ -536,10 +560,44 @@ function ViewTasks() {
           <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">Opérations</p>
           <h1 className="text-[28px] font-heading italic font-normal mt-0.5">Tâches</h1>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-          {done}/{total} terminées
+        <div className="flex items-center gap-0.5 rounded-xl border border-white/7 bg-white/[0.035] p-1">
+          {tabs.map(({ id, label, Icon, n }) => (
+            <button key={id} onClick={() => setScope(id)}
+              className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
+                scope === id ? 'bg-white/10 text-foreground' : 'text-muted-foreground hover:text-foreground')}>
+              <Icon className="h-3.5 w-3.5" />{label}
+              <span className={cn('text-[10px] tabular-nums rounded-md px-1 py-0.5', scope === id ? 'bg-white/10' : 'bg-white/5')}>{n}</span>
+            </button>
+          ))}
         </div>
+      </div>
+
+      {scope === 'personal' ? (
+        <div className="rounded-2xl border border-border bg-card overflow-hidden">
+          <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border">
+            <User className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-semibold">Mes tâches</span>
+            <span className="ml-auto text-xs text-muted-foreground">Visibles uniquement par vous</span>
+          </div>
+          <div className="divide-y divide-border">
+            {PERSONAL_TASKS.map(task => (
+              <div key={task.id} className={cn('flex items-center gap-3 px-5 py-3.5', task.status === 'done' && 'opacity-50')}>
+                {task.status === 'done'
+                  ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                  : task.status === 'in_progress'
+                  ? <div className="h-4 w-4 shrink-0 rounded-full border-2 border-blue-500" />
+                  : <Circle className="h-4 w-4 shrink-0 text-muted-foreground/40" />}
+                <p className={cn('flex-1 text-sm', task.status === 'done' && 'line-through')}>{task.title}</p>
+                <span className="text-[11px] text-muted-foreground">{task.due}</span>
+                <PriorityDot priority={task.priority} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (<>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+        {done}/{total} terminées
       </div>
 
       {TASKS_GROUPS.map(group => (
@@ -571,15 +629,20 @@ function ViewTasks() {
           </div>
         </div>
       ))}
+      </>)}
     </div>
   )
 }
 
-function ViewEvents() {
+function ViewEvents({ initialEvent = null }: { initialEvent?: number | null }) {
   const [filter, setFilter] = useState<'all' | 'planned' | 'done'>('all')
+  const [openId, setOpenId] = useState<number | null>(initialEvent)
+  const opened = EVENTS.find(e => e.id === openId)
   const filtered = EVENTS.filter(e => filter === 'all' || e.status === filter)
   const planned = EVENTS.filter(e => e.status === 'planned').length
   const done    = EVENTS.filter(e => e.status === 'done').length
+
+  if (opened) return <EventDetailDemo event={opened} onBack={() => setOpenId(null)} />
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -624,7 +687,7 @@ function ViewEvents() {
       {/* Event cards */}
       <div className="space-y-3">
         {filtered.map(ev => (
-          <div key={ev.id} className="flex items-start gap-4 rounded-2xl border border-border bg-card p-4">
+          <button key={ev.id} onClick={() => setOpenId(ev.id)} className="w-full text-left flex items-start gap-4 rounded-2xl border border-border bg-card p-4 hover:bg-foreground/[0.02] transition-colors">
             <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl text-center"
               style={{ backgroundColor: hex(0.1) }}>
               <span className="text-[9px] font-bold uppercase leading-none" style={{ color: ACCENT }}>
@@ -642,7 +705,7 @@ function ViewEvents() {
               <p className="text-[12px] text-muted-foreground mt-0.5">{ev.time} · {ev.location}</p>
               <p className="text-[12px] text-muted-foreground mt-0.5">{ev.participants} participant·es</p>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -790,7 +853,7 @@ function ViewMessages() {
 }
 
 function ViewDocuments() {
-  const [openFolders, setOpenFolders] = useState<number[]>([1, 2, 3])
+  const [openFolders, setOpenFolders] = useState<number[]>([4, 1, 2, 3])
   const toggle = (id: number) => setOpenFolders(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   const total = DOCUMENT_FOLDERS.reduce((a, f) => a + f.docs.length, 0)
 
@@ -966,15 +1029,27 @@ function ViewCotisations() {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function PreviewPage() {
-  const [active, setActive] = useState<NavId>('dashboard')
+  return (
+    <Suspense>
+      <Preview />
+    </Suspense>
+  )
+}
+
+function Preview() {
+  // deep links for screenshots: /preview?view=events&event=4, ?view=calendar&subscribe=1, ?view=tasks&scope=personal
+  const q = useSearchParams()
+  const [active, setActive] = useState<NavId>(() => (q.get('view') as NavId | null) ?? 'dashboard')
   const [dark, setDark] = useState(true)
+  const deep = { event: q.get('event') ? Number(q.get('event')) : null, subscribe: q.get('subscribe') === '1', scope: q.get('scope') }
 
   const VIEWS: Record<NavId, React.ReactNode> = {
     dashboard:   <ViewDashboard />,
     members:     <ViewMembers />,
     cotisations: <ViewCotisations />,
-    tasks:       <ViewTasks />,
-    events:      <ViewEvents />,
+    tasks:       <ViewTasks key={deep.scope ?? 'team'} initialScope={(deep.scope as 'personal' | 'team' | 'groups') ?? 'team'} />,
+    events:      <ViewEvents key={deep.event ?? 0} initialEvent={deep.event} />,
+    calendar:    <ViewCalendarDemo key={String(deep.subscribe)} subscribeOpen={deep.subscribe} />,
     finances:    <ViewFinances />,
     messages:    <ViewMessages />,
     documents:   <ViewDocuments />,

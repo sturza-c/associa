@@ -1,4 +1,5 @@
 import { GrainOverlay } from './grain-overlay'
+import { AssociaLogo } from '@/components/brand/associa-logo'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -144,16 +145,12 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
           <div className="relative inline-block mb-1">
             <h1
-              className="text-[80px] leading-none text-white/95"
+              className="text-white/95"
               style={{
-                fontFamily: 'var(--font-title)',
-                fontStyle: 'italic',
-                fontWeight: 700,
-                letterSpacing: '-0.03em',
-                textShadow: '0 0 80px oklch(0.58 0.24 285 / 60%), 0 0 160px oklch(0.45 0.20 285 / 30%), 0 2px 40px rgba(0,0,0,0.8)',
+                filter: 'drop-shadow(0 0 40px oklch(0.58 0.24 285 / 55%)) drop-shadow(0 0 90px oklch(0.45 0.20 285 / 30%)) drop-shadow(0 2px 20px rgba(0,0,0,0.8))',
               }}
             >
-              Associa
+              <AssociaLogo className="h-[58px] w-auto mx-auto" />
             </h1>
             <div
               className="mx-auto mt-3"
