@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, Loader2, Play, X } from 'lucide-react'
 import { joinWaitlist } from '@/lib/actions/waitlist'
 import { PILOT_SPOTS } from '@/lib/waitlist-config'
@@ -34,7 +35,9 @@ export function VideoButton({ className }: { className?: string }) {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden' // no page scroll behind the player
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = overflow }
   }, [open])
   return (
     <>
@@ -44,14 +47,16 @@ export function VideoButton({ className }: { className?: string }) {
         </span>
         Voir la vidéo · 45 s
       </button>
-      {open && (
+      {/* portal: ancestors use transform/filter (scroll reveal), which would trap a fixed overlay */}
+      {open && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4" onClick={() => setOpen(false)}>
           <div className="relative w-full max-w-5xl" onClick={e => e.stopPropagation()}>
             <button onClick={() => setOpen(false)} aria-label="Fermer" className="absolute -top-11 right-0 p-2 text-white/70 hover:text-white"><X className="h-5 w-5" /></button>
             <video src="/video/associa-45s.mp4" poster="/video/associa-45s-poster.jpg" controls autoPlay playsInline
               className="w-full rounded-2xl shadow-2xl ring-1 ring-white/10 bg-black" />
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   )
@@ -76,7 +81,7 @@ export function WaitlistForm({ spotsLeft }: { spotsLeft: number }) {
           {pilot
             ? <>Votre association rejoint le programme pilote — place <strong className="text-white">n° {done.position} sur {PILOT_SPOTS}</strong>.</>
             : <>Votre association est sur la liste d&apos;attente{done.position ? <> (n° {done.position})</> : null}.</>}
-          {' '}Un e-mail de confirmation est en route, et nous vous recontactons personnellement.
+          {' '}Nous vous recontactons personnellement très vite.
         </p>
       </div>
     )

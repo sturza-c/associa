@@ -47,9 +47,10 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
   if (isGatedPath(path) && !isBetaAllowed(user?.email)) {
     // let a signed-out person reach the login form when they open the dashboard directly
-    if (!user && path.startsWith('/dashboard')) {
+    if (!user && (path.startsWith('/dashboard') || path.startsWith('/admin'))) {
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
+      if (path.startsWith('/admin')) loginUrl.search = `?next=${encodeURIComponent(path)}`
       return NextResponse.redirect(loginUrl)
     }
     if (path.startsWith('/api/')) {

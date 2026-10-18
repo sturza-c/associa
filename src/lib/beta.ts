@@ -14,5 +14,5 @@ export function isBetaAllowed(email: string | null | undefined): boolean {
 /** App routes that require a beta seat. Public pages (/, /a/[slug], /preview, auth pages) stay open. */
 export function isGatedPath(path: string): boolean {
   if (path.startsWith('/api/calendar/')) return false // token-based calendar feeds
-  return ['/dashboard', '/select', '/onboarding', '/register', '/invite', '/api'].some(p => path === p || path.startsWith(p + '/'))
+  return ['/dashboard', '/select', '/onboarding', '/register', '/invite', '/admin', '/api'].some(p => path === p || path.startsWith(p + '/'))
 }

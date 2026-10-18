@@ -1,11 +1,10 @@
 'use server'
 
 import { z } from 'zod'
-import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { PILOT_SPOTS } from '@/lib/waitlist-config'
 
 // Waitlist for the pilot programme (landing page). Written through the service role only.
+// No automatic e-mail: sign-ups are reviewed on /admin/waitlist and contacted personally.
 
 const Schema = z.object({
   associationName: z.string().trim().min(2, 'Indiquez le nom de votre association').max(120),
@@ -20,10 +19,6 @@ const Schema = z.object({
 })
 
 export type WaitlistInput = z.input<typeof Schema>
-
-function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
-}
 
 /** Number of associations already on the list, or null if the table isn't there yet. */
 export async function getWaitlistCount(): Promise<number | null> {
@@ -61,32 +56,6 @@ export async function joinWaitlist(input: WaitlistInput): Promise<{ error: strin
   }
 
   const position = (await getWaitlistCount()) ?? 0
-
-  if (process.env.RESEND_API_KEY) {
-    try {
-      const resend = new Resend(process.env.RESEND_API_KEY)
-      const pilot = position <= PILOT_SPOTS
-      await resend.emails.send({
-        from: 'Associa <noreply@getassocia.me>',
-        to: d.email,
-        subject: pilot ? 'Votre place dans le programme pilote Associa' : 'Vous êtes sur la liste d’attente Associa',
-        html: `
-          <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#1a1a2e">
-            <h2 style="margin:0 0 8px;font-size:22px">Merci ${escapeHtml(d.contactName.split(' ')[0])} !</h2>
-            <p style="color:#555;margin:0 0 16px">
-              <strong>${escapeHtml(d.associationName)}</strong> est bien inscrite
-              ${pilot ? `parmi les ${PILOT_SPOTS} associations du programme pilote (n° ${position}).` : 'sur la liste d’attente.'}
-            </p>
-            <p style="color:#555;margin:0 0 24px">
-              Nous vous recontactons personnellement pour vous présenter Associa et préparer l’espace de votre association.
-            </p>
-            <p style="color:#999;font-size:12px;margin:0">Associa · Gérez votre association simplement · getassocia.me</p>
-          </div>`,
-      })
-    } catch (e) {
-      console.error('joinWaitlist email error:', e)
-    }
-  }
 
   return { success: true, position }
 }
